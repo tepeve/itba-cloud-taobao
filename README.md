@@ -408,3 +408,7 @@ Valida: HTTP 200 con esquema `RecommendationResponse` (item_id int, score float)
 ## XII. Guía de despliegue
 
 Ver **[DEPLOYMENT.md](DEPLOYMENT.md)** — documento completo con todos los comandos para desplegar los servicios y ejecutar los scripts, incluyendo el input/output de cada uno y el racional conceptual.
+
+## XIII. Inventario de infraestructura
+
+Ver **[INFRAESTRUCTURA.md](INFRAESTRUCTURA.md)** — inventario de todos los servicios que se instancian a lo largo del pipeline, distinguiendo los que permanecen encendidos de forma continua de los efímeros, con análisis de escalabilidad.
