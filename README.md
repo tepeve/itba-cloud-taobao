@@ -202,3 +202,70 @@ wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/test_mlf
 ```
 
 Valida: health HTTP 200, creación de experimento con métrica + artefacto (metadata en PostgreSQL, artefacto en S3) y persistencia de runs en el backend store.
+
+## VIII. Ejecución: Feature Store (Iteración 5)
+
+`pipeline_features.py` lee las particiones crudas de `s3://taobao-datalake/raw/`, aplica una segregación temporal estricta para evitar _data leakage_ y persiste matrices de features en `s3://taobao-datalake/processed/`.
+
+### Pipeline
+
+1. **Infraestructura y datos:** requeridos `taobao-datalake` (Iter 2) y las particiones raw (bootstrap).
+   ```bash
+   wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao/terraform && tofu apply'
+   wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run python data_bootstrap.py'
+   ```
+2. **Feature store:**
+   ```bash
+   wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run python pipeline_features.py'
+   ```
+
+### Split temporal (anti-leakage)
+
+El día se asigna por `DENSE_RANK` sobre `event_date` ordenado (día 1 = más antiguo):
+
+| Conjunto | Días | Uso |
+|----------|------|-----|
+| Burn-in | 1-3 | Acumulación histórica (features) |
+| Train | 4-6 | Matriz de entrenamiento (+ negativos) |
+| Val | 7 | Validación (+ negativos) |
+| Test | 8 | Hold-out (+ negativos) |
+| Infer | 9 | Simulación de producción (sin label) |
+
+### Features (toda métrica en T usa datos ≤ T-1)
+
+Computadas con ventanas `ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING` (excluye el día actual), garantizando ausencia de leakage:
+
+- `user_item_freq` — frecuencia absoluta usuario-ítem histórica.
+- `user_cat_freq`, `user_cat_eng` — frecuencia e interacciones de engagement (buy/cart/fav) por categoría.
+- `intent_score` — `(eng + ε) / (freq + ε)` con factor infinitesimal `ε` (default `1e-6`).
+- `item_popularity`, `cat_popularity` — popularidad global histórica.
+- `cat_target_enc` — _target encoding_ por categoría con suavizado de Laplace `(pos_past + 1) / (total_past + 2)`.
+- `lag_1`, `lag_2` — _lag operators_ de la serie diaria usuario-categoría.
+
+### Muestreo negativo
+
+Para train/val/test se cruzan los usuarios con los `TOP_POPULAR` ítems (default 20) con los que **no** interactuaron en el día, generando `label=0`. Ratio `NEG_RATIO` (default 4) negativos por (usuario, día). El target positivo es `behavior_type IN (buy, cart, fav)`.
+
+### Variables configurables (env)
+
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `BUCKET` | `taobao-datalake` | Bucket del data lake |
+| `RAW_PREFIX` | `raw` | Prefijo de lectura |
+| `PROCESSED_PREFIX` | `processed` | Prefijo de escritura |
+| `EPSILON` | `1e-6` | Factor infinitesimal para intent_score |
+| `NEG_RATIO` | `4` | Negativos por (usuario, día) |
+| `TOP_POPULAR` | `20` | Ítems populares para muestreo |
+| `LOCALSTACK_ENDPOINT` | `http://localhost:4566` | Endpoint de LocalStack |
+
+### Persistencia
+
+Cada split se escribe como Parquet particionado por Hive en `s3://taobao-datalake/processed/split={train|val|test|infer}/` (escritura directa de DuckDB `httpfs` contra LocalStack).
+
+### Tests
+
+```bash
+wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/test_features.py -v'
+```
+
+Valida: escritura de los 4 splits en S3, **disyunción estricta de fechas** entre conjuntos, días esperados por split, presencia de negativos (label 0) en train/val/test, ausencia de label en infer y columnas de features.
