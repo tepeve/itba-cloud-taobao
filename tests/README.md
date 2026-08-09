@@ -14,6 +14,8 @@ Suite de verificación del pipeline de recomendación (Taobao). Cubre los recurs
 
 **Iteración 5 (Feature Store):** tests para `pipeline_features.py` (escritura de los splits en S3, disyunción temporal estricta entre conjuntos, días esperados, muestreo negativo, features).
 
+**Iteración 5B (Modelado XGBoost + MLOps):** tests para `pipeline_training.py` (comunicación con MLflow, run persistido en PostgreSQL, métricas de evaluación del día 8 y artefacto binario en S3 con flavor xgboost).
+
 Iteración 6 agregará su propia cobertura (API) conforme se implemente.
 
 ## Requisitos previos
@@ -106,6 +108,7 @@ testpaths = ["tests"]
 | 3 | `test_rds.py` | Instancia RDS + esquema `inference_results` |
 | 4 | `test_mlflow.py` | Servidor MLflow + registro de experimentos |
 | 5 | `test_features.py` | Feature store: splits, disyunción temporal, negativos |
+| 5B | `test_training.py` | Modelado XGBoost + registro en MLflow |
 | 6 | `test_api.py` *(pendiente)* | Endpoint FastAPI, consulta a RDS |
 
 ### Fixtures de datos
