@@ -32,7 +32,7 @@ def test_recommendations_200_schema(client):
 
 
 def test_recommendations_404(client):
-    resp = client.get("/recommendations/99999")
+    resp = client.get("/recommendations/999999999")
     assert resp.status_code == 404
 
 
