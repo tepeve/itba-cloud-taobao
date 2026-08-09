@@ -269,3 +269,50 @@ wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/test_fea
 ```
 
 Valida: escritura de los 4 splits en S3, **disyunción estricta de fechas** entre conjuntos, días esperados por split, presencia de negativos (label 0) en train/val/test, ausencia de label en infer y columnas de features.
+
+## IX. Ejecución: Modelado XGBoost y MLOps (Iteración 5B)
+
+`pipeline_training.py` lee las matrices precomputadas de `s3://taobao-datalake/processed/`, entrena un `XGBClassifier` con early stopping sobre validación y registra el ciclo de vida en MLflow.
+
+### Pipeline
+
+1. **Dependencias:** requiere `xgboost` (`uv sync` tras agregarlo a `pyproject.toml`).
+2. **Matrices:** `processed/` debe contener `split=train|val|test` (generadas por `pipeline_features.py`). El split `infer` **no se lee**.
+3. **Entrenamiento + registro:**
+   ```bash
+   wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run python pipeline_training.py'
+   ```
+
+### Modelado
+
+- `XGBClassifier(n_estimators=200, max_depth=4, learning_rate=0.1, eval_metric="logloss", early_stopping_rounds=10)`.
+- `eval_set=[(X_val, y_val)]` — early stopping y monitoreo de pérdida sobre el día 7.
+- Features (9): `user_item_freq, user_cat_freq, user_cat_eng, intent_score, item_popularity, cat_popularity, cat_target_enc, lag_1, lag_2`. Target: `label`.
+
+### Evaluación offline (día 8)
+
+`predict_proba(X_test)` → métricas `roc_auc_score` y `log_loss`, registradas en MLflow como `test_auc_roc` y `test_logloss`.
+
+### Gobernanza MLflow
+
+- Tracking URI: `http://localhost:5000` (env `MLFLOW_TRACKING_URI`).
+- Experimento: `taobao_recommender`.
+- `mlflow.xgboost.autolog(log_models=True)` registra topología, hiperparámetros y métricas; además se hace `mlflow.xgboost.log_model(model, "model")` explícito.
+- Artifact store: `s3://taobao-mlflow-artifacts` (via `MLFLOW_S3_ENDPOINT_URL` apuntando a LocalStack).
+
+### Variables configurables (env)
+
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `BUCKET` | `taobao-datalake` | Bucket del data lake |
+| `PROCESSED_PREFIX` | `processed` | Prefijo de las matrices |
+| `LOCALSTACK_ENDPOINT` | `http://localhost:4566` | Endpoint de LocalStack |
+| `MLFLOW_TRACKING_URI` | `http://localhost:5000` | URI del servidor MLflow |
+
+### Tests
+
+```bash
+wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/test_training.py -v'
+```
+
+Valida: existencia del run en el experimento (persistido en PostgreSQL), métricas `test_auc_roc`/`test_logloss` registradas, artefacto físico en `s3://taobao-mlflow-artifacts` y el flavor xgboost del modelo. No carga el modelo en memoria.
