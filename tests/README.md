@@ -12,7 +12,9 @@ Suite de verificación del pipeline de recomendación (Taobao). Cubre los recurs
 
 **Iteración 4 (Gobernanza MLOps):** tests para el servidor MLflow (health HTTP 200, creación de experimento con métrica + artefacto y persistencia de runs en el backend store PostgreSQL y S3).
 
-Iteraciones 5 y 6 agregarán su propia cobertura (modelado, API) conforme se implementen.
+**Iteración 5 (Feature Store):** tests para `pipeline_features.py` (escritura de los splits en S3, disyunción temporal estricta entre conjuntos, días esperados, muestreo negativo, features).
+
+Iteración 6 agregará su propia cobertura (API) conforme se implemente.
 
 ## Requisitos previos
 
@@ -103,13 +105,14 @@ testpaths = ["tests"]
 | 2 | `test_s3_bucket.py`, `test_bootstrap.py` | Bucket `taobao-datalake` + ingesta/particionado |
 | 3 | `test_rds.py` | Instancia RDS + esquema `inference_results` |
 | 4 | `test_mlflow.py` | Servidor MLflow + registro de experimentos |
-| 5 | `test_pipeline.py` *(pendiente)* | Burn-in, matriz de entrenamiento, validación OOT |
+| 5 | `test_features.py` | Feature store: splits, disyunción temporal, negativos |
 | 6 | `test_api.py` *(pendiente)* | Endpoint FastAPI, consulta a RDS |
 
 ### Fixtures de datos
 
 - `tests/fixtures/dense.csv` — 31 filas (user 1=12 interacciones, user 2=9 descartado, user 3=10) para validar el filtrado de usuarios y las particiones Hive `event_date=2017-11-25/26`.
 - `tests/fixtures/out_of_range.csv` — 34 filas con timestamps espurios (1902 y 2037) para validar el **filtro temporal estricto** que descarta registros fuera del rango legítimo del dataset (25 nov – 3 dic 2017 CST).
+- `tests/fixtures/features_9day.csv` — 99 filas sobre 9 días (25 nov – 3 dic 2017 CST) con 3 usuarios y mezcla de behaviors, para ejercer todos los splits del feature store (burn-in, train, val, test, infer).
 
 ## Gotchas
 
