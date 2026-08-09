@@ -1,0 +1,24 @@
+[project]
+name = "taobao"
+version = "0.1.0"
+description = "Taobao Product Recommendation Pipeline"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "pandas>=2.2.0",
+    "scikit-learn>=1.4.0",
+    "boto3>=1.34.0",
+    "psycopg2-binary>=2.9.0",
+    "duckdb>=0.10.0",
+    "python-dotenv>=1.0.0",
+    "redis>=5.0.0",
+    "pytest>=8.0.0",
+    "awscli-local>=0.22.0",
+    "pre-commit>=3.5.0",
+    "docker>=7.0.0",
+]
+
+
+
+
+
