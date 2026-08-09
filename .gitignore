@@ -2,3 +2,9 @@
 *.csv
 __pycache__/
 .DS_Store
+*.parquet
+localstack-data/
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.*
+terraform/crash*.log

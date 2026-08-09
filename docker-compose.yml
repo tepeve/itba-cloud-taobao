@@ -1,0 +1,15 @@
+services:
+  localstack:
+    image: localstack/localstack:3.5.0
+    container_name: localstack_main
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,ec2,rds,elbv2,iam,autoscaling
+      - DEFAULT_REGION=us-east-1
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - DEBUG=0
+      - LS_LOG=warn
+    volumes:
+      - "./localstack-data:/var/lib/localstack"
+      - "/var/run/docker.sock:/var/run/docker.sock"

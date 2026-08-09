@@ -1,0 +1,20 @@
+module "networking" {
+  source              = "./modules/networking"
+  project             = var.project
+  vpc_cidr            = var.vpc_cidr
+  azs                 = var.azs
+  public_subnet_cidrs  = var.public_subnet_cidrs
+  private_subnet_cidrs = var.private_subnet_cidrs
+}
+
+module "security_groups" {
+  source  = "./modules/security_groups"
+  project = var.project
+  vpc_id  = module.networking.vpc_id
+}
+
+module "iam" {
+  source       = "./modules/iam"
+  project      = var.project
+  bucket_names = var.bucket_names
+}
