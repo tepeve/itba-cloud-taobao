@@ -161,6 +161,20 @@ LocalStack **community** no implementa los servicios RDS, ELBv2 y Auto Scaling (
 
 ## 6. Pipeline de datos
 
+### Origen del dataset
+
+El dataset crudo (`UserBehavior.csv`, sin header, ~100M filas) se descarga de Kaggle:
+
+```
+https://www.kaggle.com/datasets/marwa80/userbehavior/data
+```
+
+Debe alojarse en `data/raw/UserBehavior.csv` para que `data_bootstrap.py` lo encuentre por defecto. Descarga alternativa vía CLI de Kaggle:
+
+```bash
+kaggle datasets download -d marwa80/userbehavior -p data/raw --unzip
+```
+
 ### `uv run python data_bootstrap.py`
 
 - **Input (env):**

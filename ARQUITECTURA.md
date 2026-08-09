@@ -30,6 +30,7 @@ La topología se segmenta en cuatro capas lógicas con responsabilidades aislada
 
 - **Servicio:** Amazon S3
 - **Racional:** Actúa como la única fuente de verdad. El dataset crudo de Taobao (interacciones de usuarios con artículos y categorías) ingresa fragmentado cronológicamente y convertido a formato **Parquet**. Se estructura en _buckets_ privados con los prefijos lógicos `/raw`, `/processed` y `/models`.
+- **Origen del dataset:** `UserBehavior.csv` se descarga de [Kaggle (marwa80/userbehavior)](https://www.kaggle.com/datasets/marwa80/userbehavior/data) y se aloja en `data/raw/` (ver [DEPLOYMENT.md](DEPLOYMENT.md)).
 
 ### 2.3 Capa de Procesamiento y Entrenamiento (Batch Computing)
 
