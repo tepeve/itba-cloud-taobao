@@ -18,6 +18,12 @@ dependencies = [
     "docker>=7.0.0",
 ]
 
+[tool.pytest.ini_options]
+markers = [
+    "integration: tests that require LocalStack running and terraform applied",
+]
+testpaths = ["tests"]
+
 
 
 
