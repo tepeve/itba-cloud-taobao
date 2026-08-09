@@ -129,6 +129,56 @@ def pg_conn(pg_host):
 
 
 @pytest.fixture(scope="session")
+def mlflow_uri(pg_host):
+    return f"http://{pg_host}:5000"
+
+
+@pytest.fixture(scope="session")
+def mlflow_s3_env(pg_host):
+    env = {
+        "MLFLOW_S3_ENDPOINT_URL": f"http://{pg_host}:4566",
+        "AWS_ACCESS_KEY_ID": "test",
+        "AWS_SECRET_ACCESS_KEY": "test",
+        "AWS_DEFAULT_REGION": REGION,
+    }
+    for k, v in env.items():
+        os.environ[k] = v
+    return env
+
+
+@pytest.fixture(scope="session")
+def mlflow_ready(mlflow_uri):
+    import time
+
+    import requests
+
+    for _ in range(30):
+        try:
+            resp = requests.get(f"{mlflow_uri}/health", timeout=2)
+            if resp.status_code == 200:
+                return mlflow_uri
+        except requests.RequestException:
+            pass
+        time.sleep(2)
+    pytest.fail(f"MLflow no respondio en {mlflow_uri} despues de 60s")
+
+
+@pytest.fixture(scope="function")
+def mlflow_pg_conn(pg_host):
+    import psycopg2
+
+    conn = psycopg2.connect(
+        host=pg_host,
+        port=int(os.environ.get("PGPORT", "5432")),
+        user=os.environ.get("PGUSER", "taobao"),
+        password=os.environ.get("PGPASSWORD", "taobao123"),
+        dbname=os.environ.get("MLFLOW_DB", "mlflow"),
+    )
+    yield conn
+    conn.close()
+
+
+@pytest.fixture(scope="session")
 def vpc(ec2_client):
     response = ec2_client.describe_vpcs(
         Filters=[{"Name": "tag:Name", "Values": [f"{PROJECT}-vpc"]}]

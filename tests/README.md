@@ -10,7 +10,9 @@ Suite de verificación del pipeline de recomendación (Taobao). Cubre los recurs
 
 **Iteración 3 (Persistencia Relacional):** tests para la instancia RDS (engine, clase, aislamiento de red, subnet group privado) y para el esquema `inference_results` (tabla, columnas, PK, idempotencia de `init_db.py`).
 
-Iteraciones 4 a 6 agregarán su propia cobertura (MLflow, modelado, API) conforme se implementen.
+**Iteración 4 (Gobernanza MLOps):** tests para el servidor MLflow (health HTTP 200, creación de experimento con métrica + artefacto y persistencia de runs en el backend store PostgreSQL y S3).
+
+Iteraciones 5 y 6 agregarán su propia cobertura (modelado, API) conforme se implementen.
 
 ## Requisitos previos
 
@@ -100,7 +102,7 @@ testpaths = ["tests"]
 | 1 | `test_vpc.py`, `test_security_groups.py`, `test_iam.py` | Landing Zone |
 | 2 | `test_s3_bucket.py`, `test_bootstrap.py` | Bucket `taobao-datalake` + ingesta/particionado |
 | 3 | `test_rds.py` | Instancia RDS + esquema `inference_results` |
-| 4 | `test_mlflow.py` *(pendiente)* | Salud del servidor, backend store, artifacts |
+| 4 | `test_mlflow.py` | Servidor MLflow + registro de experimentos |
 | 5 | `test_pipeline.py` *(pendiente)* | Burn-in, matriz de entrenamiento, validación OOT |
 | 6 | `test_api.py` *(pendiente)* | Endpoint FastAPI, consulta a RDS |
 
