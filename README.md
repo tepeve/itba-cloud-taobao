@@ -291,7 +291,12 @@ Valida: escritura de los 4 splits en S3, **disyunción estricta de fechas** entr
 
 ### Evaluación offline (día 8)
 
-`predict_proba(X_test)` → métricas `roc_auc_score` y `log_loss`, registradas en MLflow como `test_auc_roc` y `test_logloss`.
+`predict_proba(X_test)` → 6 métricas, registradas en MLflow como `test_*`:
+- `test_auc_roc` — `roc_auc_score`.
+- `test_logloss` — `log_loss`.
+- `test_precision`, `test_recall`, `test_f1`, `test_accuracy` — sobre la predicción binaria `y_pred = (y_prob >= 0.5)` (umbral fijo 0.5, con `zero_division=0`).
+
+> Nota: en `pipeline_inference.py` (día 9) no se miden estas métricas: el tensor de inferencia tiene `label = NULL` (simulación de producción sin ground truth), por lo que no es posible computar métricas de clasificación binaria allí.
 
 ### Gobernanza MLflow
 

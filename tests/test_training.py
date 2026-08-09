@@ -54,8 +54,15 @@ def test_training_logs_test_metrics(mlflow_pg_conn, training_result):
             (training_result["run_id"],),
         )
         metrics = {k: v for k, v in cur.fetchall()}
-    assert "test_auc_roc" in metrics
-    assert "test_logloss" in metrics
+    for key in [
+        "test_auc_roc",
+        "test_logloss",
+        "test_precision",
+        "test_recall",
+        "test_f1",
+        "test_accuracy",
+    ]:
+        assert key in metrics
 
 
 def test_training_persists_model_artifact_in_s3(s3_client, mlflow_ready, training_result):

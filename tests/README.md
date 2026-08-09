@@ -14,7 +14,7 @@ Suite de verificación del pipeline de recomendación (Taobao). Cubre los recurs
 
 **Iteración 5 (Feature Store):** tests para `pipeline_features.py` (escritura de los splits en S3, disyunción temporal estricta entre conjuntos, días esperados, muestreo negativo, features).
 
-**Iteración 5B (Modelado XGBoost + MLOps):** tests para `pipeline_training.py` (comunicación con MLflow, run persistido en PostgreSQL, métricas de evaluación del día 8 y artefacto binario en S3 con flavor xgboost).
+**Iteración 5B (Modelado XGBoost + MLOps):** tests para `pipeline_training.py` (comunicación con MLflow, run persistido en PostgreSQL, 6 métricas de evaluación del día 8 — AUC-ROC, LogLoss, precision, recall, f1, accuracy — y artefacto binario en S3 con flavor xgboost).
 
 **Iteración 5C (Inferencia Batch):** tests para `pipeline_inference.py` (carga del modelo, Top-K por usuario persistido en `inference_results`, idempotencia del upsert).
 

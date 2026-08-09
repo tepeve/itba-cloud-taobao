@@ -4,7 +4,14 @@ import duckdb
 import mlflow
 import mlflow.xgboost
 import pandas as pd
-from sklearn.metrics import log_loss, roc_auc_score
+from sklearn.metrics import (
+    accuracy_score,
+    f1_score,
+    log_loss,
+    precision_score,
+    recall_score,
+    roc_auc_score,
+)
 from xgboost import XGBClassifier
 
 from pipeline_features import _configure_s3
@@ -91,9 +98,21 @@ def run_training(
             verbose=False,
         )
         y_prob = model.predict_proba(X_test)[:, 1]
+        y_pred = (y_prob >= 0.5).astype(int)
         test_auc = roc_auc_score(y_test, y_prob)
         test_logloss = log_loss(y_test, y_prob)
-        mlflow.log_metrics({"test_auc_roc": test_auc, "test_logloss": test_logloss})
+        test_precision = precision_score(y_test, y_pred, zero_division=0)
+        test_recall = recall_score(y_test, y_pred, zero_division=0)
+        test_f1 = f1_score(y_test, y_pred, zero_division=0)
+        test_accuracy = accuracy_score(y_test, y_pred)
+        mlflow.log_metrics({
+            "test_auc_roc": test_auc,
+            "test_logloss": test_logloss,
+            "test_precision": test_precision,
+            "test_recall": test_recall,
+            "test_f1": test_f1,
+            "test_accuracy": test_accuracy,
+        })
         mlflow.xgboost.log_model(model, "model")
         run_id = run.info.run_id
 
@@ -101,6 +120,10 @@ def run_training(
         "run_id": run_id,
         "test_auc_roc": test_auc,
         "test_logloss": test_logloss,
+        "test_precision": test_precision,
+        "test_recall": test_recall,
+        "test_f1": test_f1,
+        "test_accuracy": test_accuracy,
         "n_train": len(X_train),
         "n_val": len(X_val),
         "n_test": len(X_test),
@@ -110,8 +133,13 @@ def run_training(
 def main():
     result = run_training()
     print(
-        f"run_id={result['run_id']} test_auc_roc={result['test_auc_roc']:.4f} "
+        f"run_id={result['run_id']} "
+        f"test_auc_roc={result['test_auc_roc']:.4f} "
         f"test_logloss={result['test_logloss']:.4f} "
+        f"test_precision={result['test_precision']:.4f} "
+        f"test_recall={result['test_recall']:.4f} "
+        f"test_f1={result['test_f1']:.4f} "
+        f"test_accuracy={result['test_accuracy']:.4f} "
         f"n_train={result['n_train']} n_val={result['n_val']} n_test={result['n_test']}"
     )
 
