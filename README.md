@@ -404,3 +404,7 @@ wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/test_api
 ```
 
 Valida: HTTP 200 con esquema `RecommendationResponse` (item_id int, score float), HTTP 404 para usuario inexistente y 200 para todos los usuarios poblados.
+
+## XII. Guía de despliegue
+
+Ver **[DEPLOYMENT.md](DEPLOYMENT.md)** — documento completo con todos los comandos para desplegar los servicios y ejecutar los scripts, incluyendo el input/output de cada uno y el racional conceptual.
