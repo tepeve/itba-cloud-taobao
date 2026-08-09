@@ -97,7 +97,8 @@ Las columnas esperadas (sin header): `user_id,item_id,category_id,behavior_type,
 - El bucket S3 **no se crea desde el script**; lo aprovisiona OpenTofu (`terraform/modules/s3`).
 - El `timestamp` se interpreta como epoch UTC y se convierte a `Asia/Shanghai` para el `event_date`: `1511544070` → `2017-11-25 00:01 CST` (no UTC, que sería `2017-11-24`).
 - El dataset abarca 25 nov – 3 dic 2017 en hora china; particionar en UTC corre las particiones un día.
-- Para correrlo contra la muestra rápida: `RAW_CSV=data/raw/UserBehavior_mini.csv uv run python data_bootstrap.py`.
+- **Filtro temporal estricto**: el CSV crudo contiene ~469K filas con timestamps corruptos (negativos → 1902, futuros → 2037). El script descarta toda fila fuera del rango legítimo `timestamp BETWEEN 1511539200 AND 1512316799` (25 nov 00:00 – 3 dic 23:59 CST), generando exactamente 9 particiones en lugar de cientos espurias.
+- Para correrlo contra la muestra rápida: `RAW_CSV=data/raw/UserBehavior_mini.csv uv run python data_bootstrap.py`. Aviso: el mini CSV no tiene usuarios con ≥10 interacciones (cada usuario aparece una vez); usar `tests/fixtures/dense.csv` o `tests/fixtures/out_of_range.csv` para validar el flujo.
 
 ### Tests
 

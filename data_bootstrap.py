@@ -14,6 +14,8 @@ S3_PREFIX = "raw"
 MIN_INTERACTIONS = 10
 TIMEZONE = "Asia/Shanghai"
 DEFAULT_WORKERS = 4
+TS_MIN = 1511539200
+TS_MAX = 1512316799
 COLUMN_SPEC = "columns={'user_id':'BIGINT','item_id':'BIGINT','category_id':'BIGINT','behavior_type':'VARCHAR','timestamp':'BIGINT'}"
 
 
@@ -35,6 +37,7 @@ def filter_users(con, csv_path, min_interactions=MIN_INTERACTIONS):
     con.execute(
         f"CREATE TABLE qualified_users AS "
         f"SELECT user_id FROM {_read_csv(csv_path)} "
+        f"WHERE timestamp BETWEEN {TS_MIN} AND {TS_MAX} "
         f"GROUP BY user_id HAVING COUNT(*) >= {min_interactions}"
     )
     return con.execute("SELECT COUNT(*) FROM qualified_users").fetchone()[0]
@@ -51,6 +54,7 @@ def write_parquet(con, csv_path, out_dir):
         f"         strftime(to_timestamp(timestamp) AT TIME ZONE '{TIMEZONE}', '%Y-%m-%d') AS event_date"
         f"  FROM {_read_csv(csv_path)}"
         "  WHERE user_id IN (SELECT user_id FROM qualified_users)"
+        f"    AND timestamp BETWEEN {TS_MIN} AND {TS_MAX}"
         f") TO '{out_dir.as_posix()}' (FORMAT PARQUET, PARTITION_BY event_date, OVERWRITE_OR_IGNORE TRUE)"
     )
     con.execute(sql)

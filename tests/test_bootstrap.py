@@ -78,3 +78,26 @@ def test_bootstrap_parquet_contains_only_qualified_users(bootstrap_result):
     user_ids = {r[0] for r in con.execute(unioned).fetchall()}
     assert user_ids == {1, 3}
     assert 2 not in user_ids
+
+
+def test_bootstrap_filters_out_of_range_timestamps(localstack_endpoint, tmp_path):
+    out_dir = str(tmp_path / "oor_parquet")
+    result = run_bootstrap(
+        csv_path="tests/fixtures/out_of_range.csv",
+        out_dir=out_dir,
+        bucket=BUCKET,
+        prefix=S3_PREFIX,
+        endpoint=localstack_endpoint,
+        workers=4,
+        min_interactions=10,
+    )
+    assert result["qualified_users"] == 1
+    con = duckdb.connect()
+    dates = set()
+    for f in Path(out_dir).rglob("*.parquet"):
+        rows = con.execute(f"SELECT DISTINCT event_date FROM '{f}'").fetchall()
+        for r in rows:
+            dates.add(str(r[0]))
+    assert dates <= {"2017-11-25", "2017-11-26"}
+    assert "1902-05-08" not in dates
+    assert "2037-04-09" not in dates

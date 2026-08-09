@@ -97,6 +97,11 @@ testpaths = ["tests"]
 |-----------|---------|---------|
 | 1 | `test_vpc.py`, `test_security_groups.py`, `test_iam.py` | Landing Zone |
 | 2 | `test_s3_bucket.py`, `test_bootstrap.py` | Bucket `taobao-datalake` + ingesta/particionado |
+
+### Fixtures de datos
+
+- `tests/fixtures/dense.csv` — 31 filas (user 1=12 interacciones, user 2=9 descartado, user 3=10) para validar el filtrado de usuarios y las particiones Hive `event_date=2017-11-25/26`.
+- `tests/fixtures/out_of_range.csv` — 34 filas con timestamps espurios (1902 y 2037) para validar el **filtro temporal estricto** que descarta registros fuera del rango legítimo del dataset (25 nov – 3 dic 2017 CST).
 | 3 | `test_rds.py` *(pendiente)* | Esquema `inference_results`, conectividad |
 | 4 | `test_mlflow.py` *(pendiente)* | Salud del servidor, backend store, artifacts |
 | 5 | `test_pipeline.py` *(pendiente)* | Burn-in, matriz de entrenamiento, validación OOT |
