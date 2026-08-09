@@ -354,4 +354,48 @@ Valida: existencia del run en el experimento (persistido en PostgreSQL), métric
 wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/test_inference.py -v'
 ```
 
-Valida: filas persistidas en `inference_results`, `recommended_items` como lista JSONB de `item_id`, máx. 10 ítems por usuario, ítems válidos del catálogo e idempotencia del upsert (re-ejecución no duplica filas).
+Valida: filas persistidas en `inference_results`, `recommended_items` como lista JSONB de objetos `{"item_id", "score"}`, máx. 10 ítems por usuario, ítems válidos del catálogo e idempotencia del upsert (re-ejecución no duplica filas).
+
+## XI. Ejecución: Capa de Servicio (Iteración 6)
+
+API REST (FastAPI) que sirve las inferencias precomputadas desde PostgreSQL.
+
+### Aplicación
+
+`api/main.py` expone `GET /recommendations/{user_id}`:
+- Pool de conexiones asíncrono (`asyncpg`) al sidecar postgres; consulta por PK `user_id` ($O(1)$).
+- Modelo Pydantic estricto `RecommendationResponse` → `List[RecommendationItem]` (`item_id: int`, `score: float`).
+- HTTP 200 con el esquema válido, o HTTP 404 si el usuario no existe.
+
+```bash
+# Ejecutar localmente (WSL)
+wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run uvicorn api.main:app --host 0.0.0.0 --port 8000'
+
+# Probar
+curl http://localhost:8000/recommendations/1
+```
+
+Contenedor: `api/Dockerfile` (multietapa: build con `uv sync`, runtime `uvicorn`).
+
+### Infraestructura (ALB + ASG)
+
+Módulo `terraform/modules/alb_asg` define:
+- `aws_lb` (ALB público, `sg_alb`, subredes públicas).
+- `aws_lb_target_group` (HTTP 8000, health check `/health`).
+- `aws_lb_listener` (80 → target group).
+- `aws_launch_template` (user_data que lanza el contenedor API, `sg_api_ec2`).
+- `aws_autoscaling_group` (subredes privadas, min 2 / max 4).
+
+**LocalStack community no implementa ELBv2 ni Auto Scaling** (features Pro, igual que RDS). Por eso el módulo está **gated** con `alb_asg_enabled` (`false` por defecto en LocalStack): los recursos están definidos y son correctos para AWS real, pero no se crean localmente. Para AWS real: `tofu apply -var="alb_asg_enabled=true"`.
+
+```bash
+wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao/terraform && tofu init && tofu apply'
+```
+
+### Tests
+
+```bash
+wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/test_api.py -v'
+```
+
+Valida: HTTP 200 con esquema `RecommendationResponse` (item_id int, score float), HTTP 404 para usuario inexistente y 200 para todos los usuarios poblados.
