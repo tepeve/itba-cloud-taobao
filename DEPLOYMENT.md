@@ -11,9 +11,10 @@ Documento de referencia con todos los comandos necesarios para desplegar los ser
 5. [Scripts de inicialización](#5-scripts-de-inicialización)
 6. [Pipeline de datos](#6-pipeline-de-datos)
 7. [API de servicio](#7-api-de-servicio)
-8. [Tests](#8-tests)
-9. [Tabla resumen de comandos](#9-tabla-resumen-de-comandos)
-10. [Mediciones reales del pipeline](#10-mediciones-reales-del-pipeline)
+8. [Detalles técnicos del pipeline](#8-detalles-técnicos-del-pipeline)
+9. [Tests](#9-tests)
+10. [Tabla resumen de comandos](#10-tabla-resumen-de-comandos)
+11. [Mediciones reales del pipeline](#11-mediciones-reales-del-pipeline)
 
 ---
 
@@ -278,7 +279,68 @@ docker build -f api/Dockerfile -t taobao-api .
 
 ---
 
-## 8. Tests
+## 8. Detalles técnicos del pipeline
+
+Detalle de las decisiones de implementación de cada etapa (consolidado de la documentación previa).
+
+### Split temporal (anti-leakage)
+
+El día se asigna por `DENSE_RANK` sobre `event_date` ordenado (día 1 = más antiguo):
+
+| Conjunto | Días | Uso |
+|----------|------|-----|
+| Burn-in | 1-3 | Acumulación histórica (features) |
+| Train | 4-6 | Matriz de entrenamiento (+ negativos) |
+| Val | 7 | Validación (+ negativos) |
+| Test | 8 | Hold-out (+ negativos) |
+| Infer | 9 | Simulación de producción (sin label) |
+
+### Features (toda métrica en T usa datos ≤ T-1)
+
+Computadas con ventanas `ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING` (excluye el día actual), garantizando ausencia de leakage:
+
+- `user_item_freq` — frecuencia absoluta usuario-ítem histórica.
+- `user_cat_freq`, `user_cat_eng` — frecuencia e interacciones de engagement (buy/cart/fav) por categoría.
+- `intent_score` — `(eng + ε) / (freq + ε)` con factor infinitesimal `ε` (default `1e-6`).
+- `item_popularity`, `cat_popularity` — popularidad global histórica.
+- `cat_target_enc` — _target encoding_ por categoría con suavizado de Laplace `(pos_past + 1) / (total_past + 2)`.
+- `lag_1`, `lag_2` — _lag operators_ de la serie diaria usuario-categoría.
+
+### Muestreo negativo
+
+Para train/val/test se cruzan los usuarios con los `TOP_POPULAR` ítems (default 20) con los que **no** interactuaron en el día, generando `label=0`. Ratio `NEG_RATIO` (default 4) negativos por (usuario, día). El target positivo es `behavior_type IN (buy, cart, fav)`.
+
+### Modelado XGBoost
+
+- `XGBClassifier(n_estimators=200, max_depth=4, learning_rate=0.1, eval_metric="logloss", early_stopping_rounds=10)`.
+- `eval_set=[(X_val, y_val)]` — early stopping y monitoreo de pérdida sobre el día 7.
+- Features (9): `user_item_freq, user_cat_freq, user_cat_eng, intent_score, item_popularity, cat_popularity, cat_target_enc, lag_1, lag_2`. Target: `label`.
+- Evaluación offline (día 8): 6 métricas `test_*` — `test_auc_roc`, `test_logloss`, `test_precision`, `test_recall`, `test_f1`, `test_accuracy` (sobre `y_pred = (y_prob >= 0.5)`, umbral fijo, `zero_division=0`).
+- En `pipeline_inference.py` (día 9) **no** se miden métricas de clasificación: el label del tensor de inferencia es `NULL` (simulación de producción sin ground truth).
+
+### Gobernanza MLflow
+
+- Tracking URI: `http://localhost:5000` (env `MLFLOW_TRACKING_URI`).
+- Experimento: `taobao_recommender`.
+- `mlflow.xgboost.autolog(log_models=True)` registra topología, hiperparámetros y métricas; además se hace `mlflow.xgboost.log_model(model, "model")` explícito.
+- Backend store: `postgresql+psycopg2://taobao:taobao123@taobao_postgres:5432/mlflow`.
+- Artifact store: `s3://taobao-mlflow-artifacts` (vía `MLFLOW_S3_ENDPOINT_URL` apuntando a LocalStack).
+
+### Capa de servicio (ALB + ASG)
+
+El módulo `terraform/modules/alb_asg` define:
+
+- `aws_lb` (ALB público, `sg_alb`, subredes públicas).
+- `aws_lb_target_group` (HTTP 8000, health check `/health`).
+- `aws_lb_listener` (80 → target group).
+- `aws_launch_template` (user_data que lanza el contenedor API, `sg_api_ec2`).
+- `aws_autoscaling_group` (subredes privadas, min 2 / max 4).
+
+**LocalStack community no implementa ELBv2 ni Auto Scaling** (features Pro). El módulo está **gated** con `alb_asg_enabled` (`false` por defecto en LocalStack). Para AWS real: `tofu apply -var="alb_asg_enabled=true"`.
+
+---
+
+## 9. Tests
 
 Todos los tests son de integración (marcador `integration`) y requieren LocalStack + infraestructura aplicada.
 
@@ -301,7 +363,7 @@ Todos los tests son de integración (marcador `integration`) y requieren LocalSt
 
 ---
 
-## 9. Tabla resumen de comandos
+## 10. Tabla resumen de comandos
 
 | Paso | Comando (Windows) | Comando (WSL) |
 |---|---|---|
@@ -319,7 +381,7 @@ Todos los tests son de integración (marcador `integration`) y requieren LocalSt
 
 ---
 
-## 10. Mediciones reales del pipeline
+## 11. Mediciones reales del pipeline
 
 Medidas sobre el dataset completo (100M filas) en LocalStack con datos reales.
 
