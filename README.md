@@ -1,5 +1,5 @@
 
-# Plan de Implementación: Arquitectura Cloud para Sistema de Recomendación Batch
+# Arquitectura Cloud para Sistema de Recomendación Batch
 
 ## I. Definición del Problema y Alcance
 
