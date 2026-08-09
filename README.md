@@ -316,3 +316,42 @@ wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/test_tra
 ```
 
 Valida: existencia del run en el experimento (persistido en PostgreSQL), métricas `test_auc_roc`/`test_logloss` registradas, artefacto físico en `s3://taobao-mlflow-artifacts` y el flavor xgboost del modelo. No carga el modelo en memoria.
+
+## X. Ejecución: Inferencia Batch y Persistencia (Iteración 5C)
+
+`pipeline_inference.py` carga el modelo desde MLflow, genera las recomendaciones para el Día 9 y persiste el Top-K por usuario en PostgreSQL para su consulta por la API.
+
+### Pipeline
+
+1. **Prerrequisitos:** un run `FINISHED` en el experimento `taobao_recommender` (generado por `pipeline_training.py`) y el tensor `split=infer` en `processed/` (generado por `pipeline_features.py`).
+2. **Ejecución:**
+   ```bash
+   wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run python pipeline_inference.py'
+   ```
+
+### Flujo
+
+1. **Carga del modelo:** `mlflow.search_runs` identifica el último run `FINISHED` del experimento y `mlflow.xgboost.load_model("runs:/{run_id}/model")` recupera el artefacto (vía `MLFLOW_S3_ENDPOINT_URL` → LocalStack).
+2. **Datos:** lee exclusivamente `s3://taobao-datalake/processed/split=infer/` (Día 9) con DuckDB `httpfs`.
+3. **Top-K:** `predict_proba` → score de interacción por (usuario, ítem); agrupa por `user_id`, ordena descendente y toma los `TOP_K` (default 10).
+4. **Persistencia:** upsert masivo (`psycopg2.extras.execute_values`) en `inference_results` con `ON CONFLICT (user_id) DO UPDATE`, actualizando `recommended_items` (lista JSONB de `item_id`) y `updated_at`.
+
+### Variables configurables (env)
+
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `BUCKET` | `taobao-datalake` | Bucket del data lake |
+| `PROCESSED_PREFIX` | `processed` | Prefijo de las matrices |
+| `LOCALSTACK_ENDPOINT` | `http://localhost:4566` | Endpoint de LocalStack |
+| `MLFLOW_TRACKING_URI` | `http://localhost:5000` | URI del servidor MLflow |
+| `TOP_K` | `10` | Ítems recomendados por usuario |
+| `PGHOST`/`PGPORT` | `localhost`/`5432` | Conexión al sidecar postgres |
+| `PGUSER`/`PGPASSWORD`/`PGDATABASE` | `taobao`/`taobao123`/`taobao` | Credenciales |
+
+### Tests
+
+```bash
+wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/test_inference.py -v'
+```
+
+Valida: filas persistidas en `inference_results`, `recommended_items` como lista JSONB de `item_id`, máx. 10 ítems por usuario, ítems válidos del catálogo e idempotencia del upsert (re-ejecución no duplica filas).
