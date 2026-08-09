@@ -6,7 +6,9 @@ Suite de verificación del pipeline de recomendación (Taobao). Cubre los recurs
 
 **Iteración 1 (Fundación de Arquitectura):** 31 tests de integración que validan VPC/subredes/route tables, los 4 Security Groups por lista blanca y la cadena IAM (rol → policy → instance profile).
 
-Iteraciones 2 a 6 agregarán su propia cobertura (bootstrap, RDS, MLflow, modelado, API) conforme se implementen.
+**Iteración 2 (Bootstrap de Datos):** tests para el bucket `taobao-datalake` (existencia + bloqueo público) y para `data_bootstrap.py` (particiones Hive `event_date=`, fechas dentro del rango del dataset, columnas del Parquet).
+
+Iteraciones 3 a 6 agregarán su propia cobertura (RDS, MLflow, modelado, API) conforme se implementen.
 
 ## Requisitos previos
 
@@ -94,7 +96,7 @@ testpaths = ["tests"]
 | Iteración | Archivo | Alcance |
 |-----------|---------|---------|
 | 1 | `test_vpc.py`, `test_security_groups.py`, `test_iam.py` | Landing Zone |
-| 2 | `test_bootstrap.py` *(pendiente)* | Filtrado de usuarios, `event_date`, particiones S3 |
+| 2 | `test_s3_bucket.py`, `test_bootstrap.py` | Bucket `taobao-datalake` + ingesta/particionado |
 | 3 | `test_rds.py` *(pendiente)* | Esquema `inference_results`, conectividad |
 | 4 | `test_mlflow.py` *(pendiente)* | Salud del servidor, backend store, artifacts |
 | 5 | `test_pipeline.py` *(pendiente)* | Burn-in, matriz de entrenamiento, validación OOT |

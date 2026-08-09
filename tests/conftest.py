@@ -59,6 +59,17 @@ def iam_client(localstack_endpoint):
 
 
 @pytest.fixture(scope="session")
+def s3_client(localstack_endpoint):
+    return boto3.client(
+        "s3",
+        endpoint_url=localstack_endpoint,
+        region_name=REGION,
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+    )
+
+
+@pytest.fixture(scope="session")
 def vpc(ec2_client):
     response = ec2_client.describe_vpcs(
         Filters=[{"Name": "tag:Name", "Values": [f"{PROJECT}-vpc"]}]
