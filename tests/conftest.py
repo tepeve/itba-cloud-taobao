@@ -27,6 +27,25 @@ def _wsl_gateway_endpoint():
     return None
 
 
+def _wsl_gateway_ip():
+    if os.name != "nt":
+        return None
+    try:
+        result = subprocess.run(
+            ["wsl", "-d", "Ubuntu", "--", "bash", "-lc", "ip route | grep default | awk '{print $3}'"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode == 0:
+            gw = result.stdout.strip()
+            if gw:
+                return gw
+    except (FileNotFoundError, subprocess.SubprocessError):
+        pass
+    return None
+
+
 @pytest.fixture(scope="session")
 def localstack_endpoint():
     return (
@@ -67,6 +86,46 @@ def s3_client(localstack_endpoint):
         aws_access_key_id="test",
         aws_secret_access_key="test",
     )
+
+
+@pytest.fixture(scope="session")
+def rds_client(localstack_endpoint):
+    return boto3.client(
+        "rds",
+        endpoint_url=localstack_endpoint,
+        region_name=REGION,
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+    )
+
+
+@pytest.fixture(scope="session")
+def rds_available(rds_client):
+    try:
+        rds_client.describe_db_instances()
+        return True
+    except Exception:
+        return False
+
+
+@pytest.fixture(scope="session")
+def pg_host():
+    return os.environ.get("PGHOST") or _wsl_gateway_ip() or "localhost"
+
+
+@pytest.fixture(scope="function")
+def pg_conn(pg_host):
+    import psycopg2
+
+    conn = psycopg2.connect(
+        host=pg_host,
+        port=int(os.environ.get("PGPORT", "5432")),
+        user=os.environ.get("PGUSER", "taobao"),
+        password=os.environ.get("PGPASSWORD", "taobao123"),
+        dbname=os.environ.get("PGDATABASE", "taobao"),
+    )
+    yield conn
+    conn.close()
 
 
 @pytest.fixture(scope="session")

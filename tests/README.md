@@ -8,7 +8,9 @@ Suite de verificación del pipeline de recomendación (Taobao). Cubre los recurs
 
 **Iteración 2 (Bootstrap de Datos):** tests para el bucket `taobao-datalake` (existencia + bloqueo público) y para `data_bootstrap.py` (particiones Hive `event_date=`, fechas dentro del rango del dataset, columnas del Parquet).
 
-Iteraciones 3 a 6 agregarán su propia cobertura (RDS, MLflow, modelado, API) conforme se implementen.
+**Iteración 3 (Persistencia Relacional):** tests para la instancia RDS (engine, clase, aislamiento de red, subnet group privado) y para el esquema `inference_results` (tabla, columnas, PK, idempotencia de `init_db.py`).
+
+Iteraciones 4 a 6 agregarán su propia cobertura (MLflow, modelado, API) conforme se implementen.
 
 ## Requisitos previos
 
@@ -97,15 +99,15 @@ testpaths = ["tests"]
 |-----------|---------|---------|
 | 1 | `test_vpc.py`, `test_security_groups.py`, `test_iam.py` | Landing Zone |
 | 2 | `test_s3_bucket.py`, `test_bootstrap.py` | Bucket `taobao-datalake` + ingesta/particionado |
+| 3 | `test_rds.py` | Instancia RDS + esquema `inference_results` |
+| 4 | `test_mlflow.py` *(pendiente)* | Salud del servidor, backend store, artifacts |
+| 5 | `test_pipeline.py` *(pendiente)* | Burn-in, matriz de entrenamiento, validación OOT |
+| 6 | `test_api.py` *(pendiente)* | Endpoint FastAPI, consulta a RDS |
 
 ### Fixtures de datos
 
 - `tests/fixtures/dense.csv` — 31 filas (user 1=12 interacciones, user 2=9 descartado, user 3=10) para validar el filtrado de usuarios y las particiones Hive `event_date=2017-11-25/26`.
 - `tests/fixtures/out_of_range.csv` — 34 filas con timestamps espurios (1902 y 2037) para validar el **filtro temporal estricto** que descarta registros fuera del rango legítimo del dataset (25 nov – 3 dic 2017 CST).
-| 3 | `test_rds.py` *(pendiente)* | Esquema `inference_results`, conectividad |
-| 4 | `test_mlflow.py` *(pendiente)* | Salud del servidor, backend store, artifacts |
-| 5 | `test_pipeline.py` *(pendiente)* | Burn-in, matriz de entrenamiento, validación OOT |
-| 6 | `test_api.py` *(pendiente)* | Endpoint FastAPI, consulta a RDS |
 
 ## Gotchas
 
