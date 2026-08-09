@@ -412,3 +412,7 @@ Ver **[DEPLOYMENT.md](DEPLOYMENT.md)** — documento completo con todos los coma
 ## XIII. Inventario de infraestructura
 
 Ver **[INFRAESTRUCTURA.md](INFRAESTRUCTURA.md)** — inventario de todos los servicios que se instancian a lo largo del pipeline, distinguiendo los que permanecen encendidos de forma continua de los efímeros, con análisis de escalabilidad.
+
+## XIV. Capa de cómputo (pendiente)
+
+Ver **[COMPUTO.md](COMPUTO.md)** — estado actual de la capa de cómputo (EC2/Lambda no materializados en LocalStack), restricciones del emulador y enfoques de implementación propuestos para futuras iteraciones.
