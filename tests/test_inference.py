@@ -29,13 +29,18 @@ def test_inference_populates_inference_results(pg_conn, inference_result):
     assert inference_result["users"] == len(rows)
 
 
-def test_recommended_items_is_list_of_item_ids(pg_conn, inference_result):
+def test_recommended_items_is_list_of_objects(pg_conn, inference_result):
     rows = _inference_rows(pg_conn)
     assert rows
     for _, items in rows:
         assert isinstance(items, list)
         assert items
-        assert all(isinstance(i, int) for i in items)
+        for item in items:
+            assert isinstance(item, dict)
+            assert "item_id" in item
+            assert "score" in item
+            assert isinstance(item["item_id"], int)
+            assert isinstance(item["score"], float)
 
 
 def test_max_10_items_per_user(pg_conn, inference_result):
@@ -47,7 +52,7 @@ def test_max_10_items_per_user(pg_conn, inference_result):
 def test_recommended_items_are_valid_catalog_items(pg_conn, inference_result):
     rows = _inference_rows(pg_conn)
     for _, items in rows:
-        assert set(items) <= CATALOG_ITEMS
+        assert {item["item_id"] for item in items} <= CATALOG_ITEMS
 
 
 def test_upsert_updates_existing_user(localstack_endpoint, mlflow_ready, mlflow_s3_env, pg_conn):

@@ -64,10 +64,15 @@ def predict_top_k(model, infer_df, top_k=TOP_K):
     scored["score"] = proba
     top = (
         scored.sort_values(["user_id", "score"], ascending=[True, False])
-        .groupby("user_id")
+        .groupby("user_id", sort=True)
         .head(top_k)
     )
-    grouped = top.groupby("user_id")["item_id"].apply(list).to_dict()
+    grouped = {}
+    for uid, group in top.groupby("user_id", sort=True):
+        grouped[uid] = [
+            {"item_id": int(i), "score": float(s)}
+            for i, s in zip(group["item_id"], group["score"])
+        ]
     return grouped
 
 
