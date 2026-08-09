@@ -8,6 +8,7 @@ __pycache__/
 data/processed/
 data/tmp/
 localstack-data/
+postgres-data/
 terraform/.terraform/
 terraform/*.tfstate
 terraform/*.tfstate.*

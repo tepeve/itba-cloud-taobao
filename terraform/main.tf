@@ -24,3 +24,11 @@ module "s3" {
   project     = var.project
   bucket_name = "taobao-datalake"
 }
+
+module "rds" {
+  source             = "./modules/rds"
+  project            = var.project
+  enabled            = var.rds_enabled
+  private_subnet_ids = module.networking.private_subnet_ids
+  sg_rds_id          = module.security_groups.sg_rds_id
+}

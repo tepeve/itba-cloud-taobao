@@ -13,3 +13,15 @@ services:
     volumes:
       - "./localstack-data:/var/lib/localstack"
       - "/var/run/docker.sock:/var/run/docker.sock"
+
+  postgres:
+    image: postgres:15
+    container_name: taobao_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=taobao
+      - POSTGRES_PASSWORD=taobao123
+      - POSTGRES_DB=taobao
+    volumes:
+      - "./postgres-data:/var/lib/postgresql/data"

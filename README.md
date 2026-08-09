@@ -107,3 +107,57 @@ wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/test_s3_
 ```
 
 Ver `tests/README.md` para la suite completa.
+
+## VI. Ejecución: Inicialización de RDS (Iteración 3)
+
+La capa de persistencia relacional aprovisiona un PostgreSQL (motor de `aws_db_instance`) en las subredes privadas y un esquema de inferencias.
+
+### Pipeline
+
+1. **Contenedores:** LocalStack + el sidecar PostgreSQL (motor real conectable).
+   ```powershell
+   docker compose up -d
+   ```
+   El postgres sidecar (`taobao_postgres`) publica en `localhost:5432` con credenciales `taobao` / `taobao123` / db `taobao`. LocalStack emula la API RDS (metadata); el sidecar provee el engine que `psycopg2` conecta.
+
+2. **Infraestructura (OpenTofu → LocalStack):** crea el `aws_db_subnet_group` en las subredes privadas y la `aws_db_instance` (`postgres` 15, `db.t3.micro`, `skip_final_snapshot`, no pública, `sg_rds`).
+   ```bash
+   wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao/terraform && tofu init && tofu apply'
+   ```
+
+3. **Inicialización del esquema:** crea idempotentemente la tabla `inference_results`.
+   ```bash
+   wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run python init_db.py'
+   ```
+
+### Esquema `inference_results`
+
+| Columna | Tipo | Restricción |
+|---------|------|-------------|
+| `user_id` | `BIGINT` | `PRIMARY KEY` |
+| `recommended_items` | `JSONB` | `NOT NULL` |
+| `updated_at` | `TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` |
+
+### Variables de conexión (`init_db.py`)
+
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `PGHOST` | `localhost` | Host del sidecar postgres |
+| `PGPORT` | `5432` | Puerto |
+| `PGUSER` | `taobao` | Usuario |
+| `PGPASSWORD` | `taobao123` | Contraseña |
+| `PGDATABASE` | `taobao` | Base de datos |
+
+### Notas
+
+- El `sg_rds` ya aísla el puerto 5432 exclusivamente a `sg_api_ec2` y `sg_batch_ec2` (Iteración 1).
+- **LocalStack community no implementa el servicio RDS** (feature Pro). Por eso el módulo `rds` está **gated** con `rds_enabled` (`false` por defecto en LocalStack): los recursos `aws_db_instance`/`aws_db_subnet_group` están definidos y son correctos para AWS real, pero no se crean en LocalStack. El engine real lo provee el sidecar `postgres:15` del `docker-compose.yml`; `init_db.py` conecta a ese sidecar.
+- Para AWS real: `tofu apply -var="rds_enabled=true"`.
+- La tabla se crea con `CREATE TABLE IF NOT EXISTS`, por lo que re-ejecutar `init_db.py` es seguro (idempotente).
+- Los tests de metadata RDS (boto3) se **saltan** automáticamente si el servicio no está disponible; los tests de esquema vía `psycopg2` siempre corren contra el sidecar.
+
+### Tests
+
+```bash
+wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/test_rds.py -v'
+```

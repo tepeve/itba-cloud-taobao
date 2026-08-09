@@ -49,3 +49,20 @@ output "datalake_bucket_arn" {
 output "datalake_bucket_name" {
   value = module.s3.bucket_name
 }
+
+output "rds_endpoint" {
+  value = module.rds.endpoint
+}
+
+output "rds_db_name" {
+  value = module.rds.db_name
+}
+
+output "rds_username" {
+  value     = module.rds.username
+  sensitive = true
+}
+
+output "rds_instance_id" {
+  value = module.rds.instance_id
+}

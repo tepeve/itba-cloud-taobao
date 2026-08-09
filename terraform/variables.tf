@@ -37,3 +37,8 @@ variable "bucket_names" {
   type    = list(string)
   default = ["taobao-datalake", "taobao-mlflow-artifacts"]
 }
+
+variable "rds_enabled" {
+  type    = bool
+  default = false
+}
