@@ -18,7 +18,9 @@ Suite de verificación del pipeline de recomendación (Taobao). Cubre los recurs
 
 **Iteración 5C (Inferencia Batch):** tests para `pipeline_inference.py` (carga del modelo, Top-K por usuario persistido en `inference_results`, idempotencia del upsert).
 
-Iteración 6 agregará su propia cobertura (API) conforme se implemente.
+**Iteración 6 (Capa de Servicio):** tests para la API FastAPI (`api/main.py`) — HTTP 200 con esquema `RecommendationResponse` y HTTP 404 para usuario inexistente.
+
+Todas las iteraciones del pipeline quedan cubiertas.
 
 ## Requisitos previos
 
@@ -112,7 +114,7 @@ testpaths = ["tests"]
 | 5 | `test_features.py` | Feature store: splits, disyunción temporal, negativos |
 | 5B | `test_training.py` | Modelado XGBoost + registro en MLflow |
 | 5C | `test_inference.py` | Inferencia batch + persistencia Top-K en RDS |
-| 6 | `test_api.py` *(pendiente)* | Endpoint FastAPI, consulta a RDS |
+| 6 | `test_api.py` | API FastAPI: esquema, 200/404 |
 
 ### Fixtures de datos
 
