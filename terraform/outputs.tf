@@ -41,3 +41,11 @@ output "iam_role_name" {
 output "instance_profile_arn" {
   value = module.iam.instance_profile_arn
 }
+
+output "datalake_bucket_arn" {
+  value = module.s3.bucket_arn
+}
+
+output "datalake_bucket_name" {
+  value = module.s3.bucket_name
+}

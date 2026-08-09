@@ -18,3 +18,9 @@ module "iam" {
   project      = var.project
   bucket_names = var.bucket_names
 }
+
+module "s3" {
+  source      = "./modules/s3"
+  project     = var.project
+  bucket_name = "taobao-datalake"
+}

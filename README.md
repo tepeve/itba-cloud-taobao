@@ -60,3 +60,49 @@ La arquitectura desplegada en LocalStack será respaldada por una simulación ec
 - **Costos de Almacenamiento (S3 y EBS):** Estimación volumétrica del _Data Lake_ (optimizada por la compresión de Parquet) y el almacenamiento en bloque adherido a las instancias.
 - **Costos Transaccionales (RDS):** Cálculo del aprovisionamiento de la base de datos relacional (configuración Multi-AZ para HA) y, de manera crítica, el costo subyacente del almacenamiento de respaldos automáticos (_Automated Backups_).
 - **Costos de Red (_Transfer Out_):** Estimación del tráfico saliente hacia internet a través del ELB y mitigación del gasto interno mediante el uso de _VPC Endpoints_ para el acceso a S3 sin transitar por un NAT Gateway.
+
+## V. Ejecución: Bootstrap de Datos (Iteración 2)
+
+El script `data_bootstrap.py` actúa como motor de ingesta del dataset Taobao: filtra usuarios con menos de 10 interacciones, deriva `event_date` en zona horaria `Asia/Shanghai` (UTC+8), particiona a Parquet por Hive (`event_date=YYYY-MM-DD/`) y sube a `s3://taobao-datalake/raw/` con `ThreadPoolExecutor`.
+
+### Pipeline
+
+1. **Infraestructura (OpenTofu → LocalStack):** crea el bucket `taobao-datalake`.
+   ```bash
+   wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao/terraform && tofu init && tofu apply'
+   ```
+2. **Ingesta:** procesa el CSV y sube las particiones Parquet.
+   ```bash
+   wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run python data_bootstrap.py'
+   ```
+
+### Datos de entrada
+
+- `data/raw/UserBehavior.csv` — dataset completo (~3.7 GB, ~100M filas, sin header).
+- `data/raw/UserBehavior_mini.csv` — muestra de 2004 filas para iteración rápida.
+
+Las columnas esperadas (sin header): `user_id,item_id,category_id,behavior_type,timestamp` (epoch en segundos).
+
+### Variables configurables (env)
+
+| Variable | Default | Descripción |
+|----------|---------|-------------|
+| `RAW_CSV` | `data/raw/UserBehavior.csv` | Ruta del CSV crudo |
+| `PARQUET_DIR` | `data/processed/parquet` | Directorio local de Parquet particionado |
+| `DB_PATH` | `data/tmp/bootstrap.duckdb` | Archivo DuckDB temporal |
+| `LOCALSTACK_ENDPOINT` | `http://localhost:4566` | Endpoint de LocalStack |
+
+### Notas
+
+- El bucket S3 **no se crea desde el script**; lo aprovisiona OpenTofu (`terraform/modules/s3`).
+- El `timestamp` se interpreta como epoch UTC y se convierte a `Asia/Shanghai` para el `event_date`: `1511544070` → `2017-11-25 00:01 CST` (no UTC, que sería `2017-11-24`).
+- El dataset abarca 25 nov – 3 dic 2017 en hora china; particionar en UTC corre las particiones un día.
+- Para correrlo contra la muestra rápida: `RAW_CSV=data/raw/UserBehavior_mini.csv uv run python data_bootstrap.py`.
+
+### Tests
+
+```bash
+wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/test_s3_bucket.py tests/test_bootstrap.py -v'
+```
+
+Ver `tests/README.md` para la suite completa.

@@ -1,8 +1,12 @@
 .venv/
 *.csv
+!tests/fixtures/*.csv
 __pycache__/
 .DS_Store
 *.parquet
+*.duckdb
+data/processed/
+data/tmp/
 localstack-data/
 terraform/.terraform/
 terraform/*.tfstate
