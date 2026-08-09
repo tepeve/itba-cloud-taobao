@@ -13,6 +13,7 @@ Documento de referencia con todos los comandos necesarios para desplegar los ser
 7. [API de servicio](#7-api-de-servicio)
 8. [Tests](#8-tests)
 9. [Tabla resumen de comandos](#9-tabla-resumen-de-comandos)
+10. [Mediciones reales del pipeline](#10-mediciones-reales-del-pipeline)
 
 ---
 
@@ -315,3 +316,54 @@ Todos los tests son de integración (marcador `integration`) y requieren LocalSt
 | Inferencia | — | `wsl -d Ubuntu -- uv run python pipeline_inference.py` |
 | API | — | `wsl -d Ubuntu -- uv run uvicorn api.main:app --port 8000` |
 | Tests | — | `wsl -d Ubuntu -- uv run pytest tests/ -v` |
+
+---
+
+## 10. Mediciones reales del pipeline
+
+Medidas sobre el dataset completo (100M filas) en LocalStack con datos reales.
+
+### Tiempos de ejecución (medidos)
+
+| Etapa | Dataset completo | Dataset toy (fixtures) |
+|-------|------------------|------------------------|
+| `data_bootstrap.py` | ~1-2 min (CSV 3.5 GB → Parquet) | segundos |
+| `pipeline_features.py` | ~2-3 min | ~1 s |
+| `pipeline_training.py` | ~15-30 s (7.69M filas) | ~2 s |
+| `pipeline_inference.py` | ~1-2 min (11.5M candidatos) | segundos |
+
+> Nota: los tiempos varían según hardware; DuckDB procesa el CSV completo en ~12 s (solo lectura).
+
+### Tamaños por capa (datos reales)
+
+| Capa | Ubicación | Tamaño | Detalle |
+|------|-----------|--------|---------|
+| **Raw** | `s3://taobao-datalake/raw/` | **1.14 GB** | 9 particiones `event_date=`, 100M filas, 969,353 usuarios |
+| **Features** | `s3://taobao-datalake/processed/` | **418 MB** | 4 splits (Parquet comprimido) |
+| &nbsp;&nbsp;→ train | | 101.5 MB | 7.69M filas (3.08M pos + 4.61M neg) |
+| &nbsp;&nbsp;→ val | | 33.8 MB | 2.71M filas |
+| &nbsp;&nbsp;→ test | | 42.1 MB | 3.44M filas |
+| &nbsp;&nbsp;→ infer | | 240.7 MB | 11.48M candidatos (sin label) |
+| **Modelo** | `s3://taobao-mlflow-artifacts/` | **~89 KB** | `model.ubj` XGBoost (200 árboles, depth 4) |
+| &nbsp;&nbsp;→ store total | | 1.4 MB | 22 modelos históricos + metadata |
+| **RDS (servicio)** | PostgreSQL `inference_results` | **444 MB** | 950,927 filas Top-K (con índice) |
+| &nbsp;&nbsp;→ base `taobao` total | | 452 MB | |
+| &nbsp;&nbsp;→ base `mlflow` | | 11.4 MB | backend store MLflow |
+
+### Total desplegado
+
+| Componente | Tamaño |
+|------------|--------|
+| S3 (raw + processed) | 1.56 GB |
+| MLflow artifacts | 1.4 MB |
+| PostgreSQL (taobao + mlflow) | 0.46 GB |
+| **TOTAL** | **~2.02 GB** |
+
+Referencia: el CSV original en disco pesa 3.5 GB (fuente, no desplegado).
+
+### Conclusiones sobre costos/computación
+
+1. **El muestreo negativo domina las filas pero no el tamaño:** los 4.6M negativos de train son ~60% de sus filas, pero el Parquet comprime a ~30 B/fila → `processed/` total 418 MB, solo ~1/3 del raw.
+2. **El `inference_results` es el mayor costo relacional** (444 MB para 950K filas Top-K), mayor que las matrices de features.
+3. **El modelo es despreciable** (~89 KB).
+4. **Escalabilidad:** todo el pipeline con datos reales cabe en ~2 GB, cómodo para LocalStack (disco local) y para AWS (S3 y RDS de bajo costo).
