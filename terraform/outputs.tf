@@ -50,6 +50,14 @@ output "datalake_bucket_name" {
   value = module.s3.bucket_name
 }
 
+output "mlflow_bucket_arn" {
+  value = module.s3_mlflow.bucket_arn
+}
+
+output "mlflow_bucket_name" {
+  value = module.s3_mlflow.bucket_name
+}
+
 output "rds_endpoint" {
   value = module.rds.endpoint
 }

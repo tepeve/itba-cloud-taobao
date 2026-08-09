@@ -161,3 +161,44 @@ La capa de persistencia relacional aprovisiona un PostgreSQL (motor de `aws_db_i
 ```bash
 wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/test_rds.py -v'
 ```
+
+## VII. Ejecución: Gobernanza MLOps (Iteración 4)
+
+Despliega un servidor MLflow con backend store en PostgreSQL (base `mlflow`) y artifact store en S3 (`taobao-mlflow-artifacts`).
+
+### Pipeline
+
+1. **Infraestructura (OpenTofu → LocalStack):** crea el bucket `taobao-mlflow-artifacts` (con bloqueo de acceso público, igual que el Data Lake).
+   ```bash
+   wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao/terraform && tofu init && tofu apply'
+   ```
+2. **Contenedores:** construye la imagen MLflow (custom), crea la DB `mlflow` y levanta el servidor.
+   ```powershell
+   docker compose up -d --build
+   ```
+   - `mlflow-db-init` (one-shot) crea la base `mlflow` en el sidecar postgres de forma idempotente (`init_mlflow_db.py`).
+   - `mlflow` expone el puerto 5000, apunta su `backend-store-uri` a `postgresql+psycopg2://...@taobao_postgres:5432/mlflow` y su `default-artifact-root` a `s3://taobao-mlflow-artifacts`.
+   - `MLFLOW_S3_ENDPOINT_URL=http://localstack_main:4566` enruta el tráfico S3 del contenedor hacia LocalStack (misma red Docker).
+
+### Configuración
+
+| Aspecto | Valor |
+|---------|-------|
+| Imagen | `docker/mlflow/Dockerfile` (python:3.12-slim + mlflow + psycopg2-binary + boto3) |
+| UI / API | `http://localhost:5000` (health: `/health`) |
+| Backend store | `postgresql+psycopg2://taobao:taobao123@taobao_postgres:5432/mlflow` |
+| Artifact root | `s3://taobao-mlflow-artifacts` |
+| S3 endpoint (contenedor) | `http://localstack_main:4566` |
+| Credenciales AWS (emuladas) | `test` / `test` / `us-east-1` |
+
+### Variables del cliente (`mlflow_s3_env`, tests)
+
+Para que el cliente `mlflow` de los tests (corre en WSL) suba artefactos a LocalStack: `MLFLOW_S3_ENDPOINT_URL=http://<gateway>:4566` + creds `test`/`test`.
+
+### Tests
+
+```bash
+wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/test_mlflow.py -v'
+```
+
+Valida: health HTTP 200, creación de experimento con métrica + artefacto (metadata en PostgreSQL, artefacto en S3) y persistencia de runs en el backend store.

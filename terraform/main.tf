@@ -25,6 +25,12 @@ module "s3" {
   bucket_name = "taobao-datalake"
 }
 
+module "s3_mlflow" {
+  source      = "./modules/s3"
+  project     = var.project
+  bucket_name = "taobao-mlflow-artifacts"
+}
+
 module "rds" {
   source             = "./modules/rds"
   project            = var.project
