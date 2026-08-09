@@ -38,3 +38,14 @@ module "rds" {
   private_subnet_ids = module.networking.private_subnet_ids
   sg_rds_id          = module.security_groups.sg_rds_id
 }
+
+module "alb_asg" {
+  source              = "./modules/alb_asg"
+  project             = var.project
+  enabled             = var.alb_asg_enabled
+  vpc_id              = module.networking.vpc_id
+  public_subnet_ids   = module.networking.public_subnet_ids
+  private_subnet_ids  = module.networking.private_subnet_ids
+  sg_alb_id           = module.security_groups.sg_alb_id
+  sg_api_ec2_id       = module.security_groups.sg_api_ec2_id
+}

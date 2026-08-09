@@ -74,3 +74,15 @@ output "rds_username" {
 output "rds_instance_id" {
   value = module.rds.instance_id
 }
+
+output "alb_dns_name" {
+  value = module.alb_asg.alb_dns_name
+}
+
+output "alb_arn" {
+  value = module.alb_asg.alb_arn
+}
+
+output "asg_name" {
+  value = module.alb_asg.asg_name
+}

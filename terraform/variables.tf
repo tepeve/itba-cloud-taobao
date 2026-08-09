@@ -42,3 +42,8 @@ variable "rds_enabled" {
   type    = bool
   default = false
 }
+
+variable "alb_asg_enabled" {
+  type    = bool
+  default = false
+}
