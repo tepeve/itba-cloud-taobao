@@ -14,6 +14,7 @@ terraform/*.tfstate
 terraform/*.tfstate.*
 terraform/crash*.log
 pack_repo*.py
+repositorio_final.md
 
 
 
