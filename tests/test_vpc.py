@@ -63,7 +63,7 @@ def test_public_route_table_has_default_to_igw(route_tables, igw):
 
 def test_private_route_table_default_to_nat(route_tables):
     priv_rt = _route_table_by_name(route_tables, "taobao-priv-rt")
-    default = next(r for r in priv_rt["Routes"] if r["DestinationCidrBlock"] == "0.0.0.0/0")
+    default = next(r for r in priv_rt["Routes"] if r.get("DestinationCidrBlock") == "0.0.0.0/0")
     assert default.get("NatGatewayId")
 
 
