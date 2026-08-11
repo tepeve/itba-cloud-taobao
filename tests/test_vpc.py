@@ -61,10 +61,15 @@ def test_public_route_table_has_default_to_igw(route_tables, igw):
     assert default["GatewayId"] == igw["InternetGatewayId"]
 
 
-def test_private_route_table_no_default(route_tables):
+def test_private_route_table_default_to_nat(route_tables):
     priv_rt = _route_table_by_name(route_tables, "taobao-priv-rt")
-    destinations = [r.get("DestinationCidrBlock") for r in priv_rt["Routes"]]
-    assert "0.0.0.0/0" not in destinations
+    default = next(r for r in priv_rt["Routes"] if r["DestinationCidrBlock"] == "0.0.0.0/0")
+    assert default.get("NatGatewayId")
+
+
+def test_nat_gateway_has_eip(nat_gateway):
+    addresses = nat_gateway["NatGatewayAddresses"]
+    assert any(a.get("AllocationId") for a in addresses)
 
 
 def test_public_subnets_associated_to_public_rt(route_tables, public_subnets):

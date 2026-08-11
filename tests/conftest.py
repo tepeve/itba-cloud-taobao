@@ -241,6 +241,16 @@ def route_tables(ec2_client, vpc):
 
 
 @pytest.fixture(scope="session")
+def nat_gateway(ec2_client, vpc):
+    response = ec2_client.describe_nat_gateways(
+        Filters=[{"Name": "vpc-id", "Values": [vpc["VpcId"]]}]
+    )
+    gateways = [g for g in response["NatGateways"] if g["State"] == "available"]
+    assert gateways, f"NAT Gateway en {vpc['VpcId']} no encontrado"
+    return gateways[0]
+
+
+@pytest.fixture(scope="session")
 def security_groups(ec2_client, vpc):
     response = ec2_client.describe_security_groups(
         Filters=[{"Name": "vpc-id", "Values": [vpc["VpcId"]]}]
