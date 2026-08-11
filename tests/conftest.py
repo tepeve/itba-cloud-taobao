@@ -281,8 +281,8 @@ def sg_api_ec2(security_groups):
 
 
 @pytest.fixture(scope="session")
-def sg_batch_ec2(security_groups):
-    return security_groups[f"{PROJECT}-batch-ec2-sg"]
+def sg_airflow(security_groups):
+    return security_groups[f"{PROJECT}-airflow-sg"]
 
 
 @pytest.fixture(scope="session")

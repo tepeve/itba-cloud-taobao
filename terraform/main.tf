@@ -12,6 +12,7 @@ module "security_groups" {
   source  = "./modules/security_groups"
   project = var.project
   vpc_id  = module.networking.vpc_id
+  vpc_cidr = var.vpc_cidr
 }
 
 module "iam" {

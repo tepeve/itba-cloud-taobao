@@ -22,8 +22,8 @@ output "sg_api_ec2_id" {
   value = module.security_groups.sg_api_ec2_id
 }
 
-output "sg_batch_ec2_id" {
-  value = module.security_groups.sg_batch_ec2_id
+output "sg_airflow_id" {
+  value = module.security_groups.sg_airflow_id
 }
 
 output "sg_rds_id" {

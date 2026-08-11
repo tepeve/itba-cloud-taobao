@@ -34,9 +34,23 @@ resource "aws_security_group" "api_ec2" {
   }
 }
 
-resource "aws_security_group" "batch_ec2" {
-  name   = "${var.project}-batch-ec2-sg"
+resource "aws_security_group" "airflow" {
+  name   = "${var.project}-airflow-sg"
   vpc_id = var.vpc_id
+
+  ingress {
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+  }
+
+  ingress {
+    from_port   = 5000
+    to_port     = 5000
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+  }
 
   egress {
     from_port   = 0
@@ -46,7 +60,7 @@ resource "aws_security_group" "batch_ec2" {
   }
 
   tags = {
-    Name        = "${var.project}-sg-batch-ec2"
+    Name        = "${var.project}-sg-airflow"
     Project     = var.project
     Environment = "localstack"
   }
@@ -60,7 +74,7 @@ resource "aws_security_group" "rds" {
     from_port       = 5432
     to_port         = 5432
     protocol        = "tcp"
-    security_groups = [aws_security_group.api_ec2.id, aws_security_group.batch_ec2.id]
+    security_groups = [aws_security_group.airflow.id, aws_security_group.api_ec2.id]
   }
 
   tags = {

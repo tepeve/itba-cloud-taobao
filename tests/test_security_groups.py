@@ -44,20 +44,24 @@ def test_sg_api_ec2_ingress_not_from_cidr(sg_api_ec2):
     assert not rules[0].get("IpRanges")
 
 
-def test_sg_batch_ec2_no_ingress(sg_batch_ec2):
-    assert not _ingress_permissions(sg_batch_ec2)
+def test_sg_airflow_ingress_internal_8080_5000(sg_airflow):
+    rules = {p["FromPort"]: p for p in _ingress_permissions(sg_airflow)}
+    assert 8080 in rules and 5000 in rules
+    for port in (8080, 5000):
+        ranges = rules[port].get("IpRanges", [])
+        assert any(r["CidrIp"] == "10.0.0.0/16" for r in ranges)
 
 
-def test_sg_batch_ec2_egress_all(sg_batch_ec2):
-    egress = _egress_permissions(sg_batch_ec2)
+def test_sg_airflow_egress_all(sg_airflow):
+    egress = _egress_permissions(sg_airflow)
     assert any(p.get("IpProtocol") == "-1" for p in egress)
 
 
-def test_sg_rds_ingress_5432_from_api_and_batch(sg_rds, sg_api_ec2, sg_batch_ec2):
+def test_sg_rds_ingress_5432_from_airflow_and_api(sg_rds, sg_api_ec2, sg_airflow):
     rules = _rule_with_port(_ingress_permissions(sg_rds), 5432)
     assert rules
     pairs = {p["GroupId"] for p in rules[0].get("UserIdGroupPairs", [])}
-    assert pairs == {sg_api_ec2["GroupId"], sg_batch_ec2["GroupId"]}
+    assert pairs == {sg_api_ec2["GroupId"], sg_airflow["GroupId"]}
 
 
 def test_sg_rds_no_other_ingress(sg_rds):
