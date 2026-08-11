@@ -1,0 +1,42 @@
+name: taobao-airflow
+
+services:
+  airflow-postgres:
+    image: postgres:15
+    container_name: taobao_airflow_postgres
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U airflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  airflow:
+    image: apache/airflow:2.9.0-python3.12
+    container_name: taobao_airflow
+    user: "0:0"
+    ports:
+      - "8080:8080"
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres:5432/airflow
+      AIRFLOW__CORE__EXECUTOR: LocalExecutor
+      AIRFLOW__CORE__LOAD_EXAMPLES: "False"
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "True"
+      AIRFLOW_WWW_USER_USERNAME: admin
+      AIRFLOW_WWW_USER_PASSWORD: admin
+      AIRFLOW_VAR_DATALAKE_BUCKET: taobao-datalake
+      AIRFLOW_VAR_MLFLOW_DB_URI: http://host.docker.internal:5000
+      AIRFLOW_VAR_RDS_HOST: host.docker.internal
+      AIRFLOW_VAR_RDS_USER: taobao
+      AIRFLOW_VAR_RDS_PASSWORD: taobao123
+      AIRFLOW_VAR_LOCALSTACK_ENDPOINT: http://host.docker.internal:4566
+      UV_PROJECT_ENVIRONMENT: /opt/airflow/project-venv
+    volumes:
+      - ".:/opt/airflow/dags"
+    command: bash -c "pip install -U -q uv; airflow standalone"
