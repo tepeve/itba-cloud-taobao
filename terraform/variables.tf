@@ -52,3 +52,13 @@ variable "alb_asg_enabled" {
   type    = bool
   default = false
 }
+
+variable "gateway_ip" {
+  type    = string
+  default = ""
+}
+
+variable "ami_id" {
+  type    = string
+  default = "ami-07b643b5e45e"
+}

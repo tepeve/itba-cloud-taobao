@@ -343,3 +343,13 @@ def ssm_read_policy(iam_client):
         PolicyArn=match[0]["Arn"], VersionId=match[0]["DefaultVersionId"]
     )
     return version["PolicyVersion"]["Document"]
+
+
+@pytest.fixture(scope="session")
+def airflow_instance(ec2_client):
+    resp = ec2_client.describe_instances(
+        Filters=[{"Name": "tag:Name", "Values": [f"{PROJECT}-airflow"]}]
+    )
+    instances = resp["Reservations"][0]["Instances"]
+    assert instances, f"Instancia {PROJECT}-airflow no encontrada"
+    return instances[0]

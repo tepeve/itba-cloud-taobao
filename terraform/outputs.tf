@@ -66,6 +66,22 @@ output "mlflow_bucket_name" {
   value = module.s3_mlflow.bucket_name
 }
 
+output "airflow_dags_bucket_arn" {
+  value = module.s3_airflow_dags.bucket_arn
+}
+
+output "airflow_dags_bucket_name" {
+  value = module.s3_airflow_dags.bucket_name
+}
+
+output "compute_instance_id" {
+  value = module.compute.instance_id
+}
+
+output "compute_private_ip" {
+  value = module.compute.instance_private_ip
+}
+
 output "rds_endpoint" {
   value = module.rds.endpoint
 }
