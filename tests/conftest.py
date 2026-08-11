@@ -4,6 +4,9 @@ import subprocess
 import boto3
 import pytest
 
+os.environ.setdefault("PGPORT", "5432")
+os.environ.setdefault("PGDATABASE", "taobao")
+
 PROJECT = "taobao"
 REGION = "us-east-1"
 
