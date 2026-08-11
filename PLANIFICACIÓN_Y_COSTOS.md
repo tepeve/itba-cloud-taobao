@@ -7,6 +7,7 @@ Documento de planificación del sistema de recomendación batch (Taobao → Loca
 1. [Cronograma y Etapas de Desarrollo](#1-cronograma-y-etapas-de-desarrollo)
 2. [Costos: Estimación Financiera y FinOps](#2-costos-estimación-financiera-y-finops)
 3. [Mediciones reales del pipeline](#3-mediciones-reales-del-pipeline)
+4. [Análisis de escalabilidad](#4-análisis-de-escalabilidad)
 
 ---
 
@@ -102,3 +103,40 @@ Referencia: el CSV original en disco pesa 3.5 GB (fuente, no desplegado).
 2. **El `inference_results` es el mayor costo relacional** (444 MB para 950K filas Top-K), mayor que las matrices de features.
 3. **El modelo es despreciable** (~89 KB).
 4. **Escalabilidad:** todo el pipeline con datos reales cabe en ~2 GB, cómodo para LocalStack (disco local) y para AWS (S3 y RDS de bajo costo).
+
+---
+
+## 4. Análisis de escalabilidad
+
+### Componentes siempre encendidos (costo fijo 24/7)
+
+Estos son los que el usuario debe dimensionar en términos de costo/consumo continuo:
+
+1. **LocalStack** (`localstack_main`) — la base del entorno emulado. No escala con la carga real; en producción se reemplaza por AWS real.
+2. **PostgreSQL** (`taobao_postgres`) — **stateful**, el cuello de botella más probable. `inference_results` llegó a 950,927 filas / 444 MB con datos reales. Escalar requiere: índices adicionales, particionamiento por `user_id`, o cluster PostgreSQL/HA.
+3. **MLflow** (`taobao_mlflow`) — stateless (backend en PG, artifacts en S3). Escala horizontalmente con réplicas detrás de un balanceador.
+4. **Orquestador Airflow** (`taobao-airflow`, `aws_instance`) — en AWS real ejecuta scheduler + webserver + LocalExecutor; escala verticalmente (`t3.medium`). En LocalStack es simbólico (mock VM).
+5. **API** (`uvicorn api/main.py`) — stateless. Escala horizontalmente (el ASG en AWS real lo hace: min 2 / max 4). Depende del pool asyncpg para no saturar PostgreSQL.
+
+### Componentes efímeros (costo por ejecución, no continuo)
+
+- DuckDB (bootstrap/features): picos de memoria durante el batch, libera al terminar.
+- XGBoost (training/inference): picos de CPU/RAM. Con datos reales, train = 7.69M filas (~15-30 s); inference = 11.48M candidatos.
+- ThreadPoolExecutor (bootstrap): red hacia S3.
+
+### Puntos de escalabilidad clave
+
+| Componente | Modo de escalado | Riesgo |
+|------------|------------------|--------|
+| PostgreSQL (`inference_results`) | Vertical (más RAM/CPU) o particionado | **Alto** — 444 MB con solo 950K usuarios; escala lineal con usuarios |
+| Orquestador Airflow | Vertical (`t3.medium`) o executor distribuido | Medio — CPU/RAM del scheduler + workers |
+| MLflow | Horizontal (réplicas) | Bajo — stateless |
+| API | Horizontal (ASG min 2 / max 4) | Medio — pool asyncpg a PG |
+| S3 (raw/processed) | N/A — elástico por diseño | Bajo — 1.56 GB actual |
+
+### Estimación de crecimiento
+
+Con los datos reales medidos:
+- Cada usuario activo genera ~1 fila en `inference_results` (Top-K) → el tamaño crece **lineal** con la base de usuarios.
+- `raw/` y `processed/` crecen con el volumen transaccional diario (9 días → 1.56 GB; un año → ~60 GB aprox.).
+- El modelo (~89 KB) es despreciable y se regenera por batch.

@@ -33,18 +33,13 @@ La topología se segmenta en cuatro capas lógicas con responsabilidades aislada
 ### 2.3 Capa de Procesamiento y Entrenamiento (Batch Computing)
 
 - **Servicios:** Amazon EC2, EBS, IAM.
-- **Racional:** Instancias EC2 efímeras, aprovisionadas con _Instance Profiles_ (IAM) para acceder a S3 sin credenciales estáticas. Ejecutan _scripts_ de Python para computar la ingeniería de características (discretización temporal, RFM, tasas de intención) y entrenar el modelo predictivo, separando la matriz histórica (días 1-7) del conjunto de validación y simulación diaria.
-- **Nota de estado:** esta capa quedó materializada en el **Sprint 2** como IaaS orquestado por Airflow: una instancia orquestadora `taobao-airflow` (`aws_instance`) en subred privada ejecuta el DAG `taobao_dag.py`, sustituyendo la ejecución manual secuencial de los scripts (ver [2.3.1](#231-cómputo-orquestado-sprint-2)). En LocalStack la instancia es simbólica (mock VM): representa el plano de control declarativo; el cómputo real corre en el host.
+- **Racional:** el cómputo batch se materializa como **IaaS orquestado por Apache Airflow**. Una instancia orquestadora `aws_instance.airflow_orchestrator` (`taobao-airflow`, `t3.medium`, subred privada, `sg_airflow`, _Instance Profile_ IAM batch) ejecuta el DAG `taobao_dag.py` que orquesta los 4 scripts analíticos (`data_bootstrap` → `pipeline_features` → `pipeline_training` → `pipeline_inference`) vía `BashOperator`, sustituyendo la ejecución manual secuencial. El acceso a S3 se realiza con credenciales efímeras del _Instance Profile_ (sin claves estáticas). La ingeniería de características aplica segregación temporal estricta para evitar _data leakage_ (burn-in días 1-3, train 4-6, val 7, test 8, infer 9), descripción detallada en [DEPLOYMENT.md](DEPLOYMENT.md).
+- **Aprovisionamiento:** `user_data = templatefile(init_airflow.sh.tpl)` instala Docker, sincroniza el bucket `taobao-airflow-dags` a `/opt/airflow/dags` (cron cada 5 min), resuelve la contraseña DB vía SSM (`/taobao/prod/rds_password`, `SecureString`) y levanta `apache/airflow:2.9.0` con `LocalExecutor`.
+- **Inyección de contexto:** el DAG pasa el contexto a los scripts mediante `env_vars` (`BUCKET`, `MLFLOW_TRACKING_URI`, `PGHOST`/`PGPORT`/`PGUSER`/`PGPASSWORD`/`PGDATABASE`, `LOCALSTACK_ENDPOINT`); los scripts analíticos las leen **sin fallbacks `localhost`**.
+- **Red y secretos:** NAT Gateway (EIP en subred pública) + VPC Endpoint S3 (Gateway) sobre la route table privada; `sg_airflow` con ingress interno 8080/5000 desde `vpc_cidr`. Detalle del inventario de red, SG y secretos en [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md).
+- **Caveat LocalStack:** en el emulador community la instancia EC2 es **simbólica** (mock VM que no procesa `user_data` ni arranca Airflow); representa el plano de control declarativo y el cómputo real corre en el host. La verificación local de la orquestación se realiza con `docker-compose.airflow.yml` + `.airflowignore`.
 
-#### 2.3.1 Cómputo orquestado (Sprint 2)
-
-- **Orquestador:** `aws_instance` `taobao-airflow` (`t3.medium`, subred privada, `sg_airflow`, perfil IAM batch) con `user_data = templatefile(init_airflow.sh.tpl)`: instala Docker, sincroniza el bucket `taobao-airflow-dags` a `/opt/airflow/dags` (cron cada 5 min), resuelve la contraseña DB vía SSM y levanta `apache/airflow:2.9.0` con `LocalExecutor`.
-- **Red:** NAT Gateway (EIP en subred pública) + VPC Endpoint S3 (Gateway) sobre la route table privada, para que las instancias privadas accedan a S3 sin transitar por el NAT. Security Group `sg_airflow` (renombrado de `sg_batch_ec2`) con ingress interno 8080/5000 desde `vpc_cidr`.
-- **Secretos:** SSM Parameter `/taobao/prod/rds_password` (`SecureString`) con policy `ssm:GetParameter` + `kms:Decrypt`; sin credenciales en texto plano.
-- **DAG `taobao_dag.py`:** `BashOperator` con `env_vars` (`BUCKET`, `MLFLOW_TRACKING_URI`, `PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE`, `LOCALSTACK_ENDPOINT`) y topología `t_bootstrap >> t_features >> t_training >> t_inference`. Los scripts analíticos leen estas variables **sin fallbacks `localhost`** (el contexto lo inyecta Airflow).
-- **Caveat LocalStack:** community no procesa `user_data` ni arranca Airflow en la instancia; la verificación local de la orquestación se realiza con `docker-compose.airflow.yml` + `.airflowignore`.
-
-#### 2.3.2 Estado de materialización en LocalStack
+#### 2.3.1 Estado de materialización en LocalStack
 
 | Componente | ¿Materializado en LocalStack? | Dónde corre realmente |
 |---|---|---|
@@ -74,7 +69,7 @@ El inventario detallado de recursos materializados y gated está en [INFRAESTRUC
 ### 2.5 Capa de Servicio e Inferencia Reactiva (Serving Layer)
 
 - **Servicios:** Amazon VPC, Application Load Balancer (ELB), Auto Scaling Group (EC2), Amazon RDS.
-- **Racional:** El proceso _batch_ exporta las predicciones calculadas hacia una base de datos RDS (PostgreSQL) estructurada como almacén clave-valor ($O(1)$ de latencia). Un ELB público enruta el tráfico web hacia un grupo de autoescalado de instancias EC2 en subredes privadas, las cuales ejecutan una API ligera (FastAPI en Docker) para consultar RDS y retornar las inferencias en tiempo real. En LocalStack esta capa es **gated** (ver [2.3.2](#232-estado-de-materialización-en-localstack)).
+- **Racional:** El proceso _batch_ exporta las predicciones calculadas hacia una base de datos RDS (PostgreSQL) estructurada como almacén clave-valor ($O(1)$ de latencia). Un ELB público enruta el tráfico web hacia un grupo de autoescalado de instancias EC2 en subredes privadas, las cuales ejecutan una API ligera (FastAPI en Docker) para consultar RDS y retornar las inferencias en tiempo real. En LocalStack esta capa es **gated** (ver [2.3.1](#231-estado-de-materialización-en-localstack)).
 
 ## 3. Decisiones de implementación
 

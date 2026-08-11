@@ -1,6 +1,6 @@
 # Infraestructura del Pipeline — Inventario de Servicios
 
-Documento de referencia para análisis de escalabilidad. Detalla todos los componentes de infraestructura que se instancian a lo largo del pipeline de recomendación (Taobao → LocalStack), distinguiendo cuáles **permanecen encendidos de forma continua** de los que son **efímeros** (se instancian por etapa y terminan).
+Documento de inventario de los componentes de infraestructura que se instancian a lo largo del pipeline de recomendación (Taobao → LocalStack), distinguiendo cuáles **permanecen encendidos de forma continua** de los que son **efímeros** (se instancian por etapa y terminan). El análisis de escalabilidad y crecimiento vive en [PLANIFICACIÓN_Y_COSTOS.md](PLANIFICACIÓN_Y_COSTOS.md).
 
 ## Resumen ejecutivo
 
@@ -82,9 +82,17 @@ Creados por `tofu apply` (módulos de `terraform/`). Persisten mientras exista e
 
 ### 2.5 Cómputo — módulo `compute`
 
-| Recurso | Nombre | Persistente |
-|---------|--------|-------------|
-| Instancia EC2 | `taobao-airflow` (`t3.medium`, subred privada, `sg_airflow`, profile batch) | Sí — simbólica en LocalStack (mock VM), `user_data` = `init_airflow.sh.tpl` |
+| Recurso | Valor | Detalle |
+|---------|-------|---------|
+| Instancia EC2 | `taobao-airflow` (`aws_instance.airflow_orchestrator`) | `instance_type` = `t3.medium`, `ami-07b643b5e45e` |
+| Subred | Privada (`module.networking.private_subnet_ids[0]`) | Sin IP pública (`associate_public_ip_address = false`) |
+| Security Group | `sg_airflow` (`vpc_security_group_ids`) | Ver [§2.3](#23-seguridad--módulo-security_groups) |
+| IAM | _Instance Profile_ batch (`taobao-batch-instance-profile`) | Acceso S3 y SSM con roles efímeros |
+| Tags | `Name=taobao-airflow`, `Project=taobao`, `Environment=localstack` | |
+| `user_data` | `templatefile(init_airflow.sh.tpl)` | Instala Docker, sincroniza `taobao-airflow-dags` → `/opt/airflow/dags` (cron cada 5 min), lee la contraseña DB de SSM y levanta `apache/airflow:2.9.0` con `LocalExecutor` |
+| Outputs | `instance_id`, `instance_private_ip` | |
+
+> En LocalStack esta instancia es **simbólica** (mock VM que no procesa `user_data`); el diseño y la racional del orquestador están en [ARQUITECTURA.md](ARQUITECTURA.md) y los comandos en [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ---
 
@@ -150,44 +158,9 @@ Ejecutados con `uv run python <script>` desde WSL. **No permanecen corriendo**; 
 
 ---
 
-## 6. Análisis de escalabilidad
+## 6. Comandos de referencia rápida
 
-### Componentes siempre encendidos (costo fijo 24/7)
-
-Estos son los que el usuario debe dimensionar en términos de costo/consumo continuo:
-
-1. **LocalStack** (`localstack_main`) — la base del entorno emulado. No escala con la carga real; en producción se reemplaza por AWS real.
-2. **PostgreSQL** (`taobao_postgres`) — **stateful**, el cuello de botella más probable. `inference_results` llegó a 950,927 filas / 444 MB con datos reales. Escalar requiere: índices adicionales, particionamiento por `user_id`, o cluster PostgreSQL/HA.
-3. **MLflow** (`taobao_mlflow`) — stateless (backend en PG, artifacts en S3). Escala horizontalmente con réplicas detrás de un balanceador.
-4. **Orquestador Airflow** (`taobao-airflow`, `aws_instance`) — en AWS real ejecuta scheduler + webserver + LocalExecutor; escala verticalmente (`t3.medium`). En LocalStack es simbólico (mock VM).
-5. **API** (`uvicorn api/main.py`) — stateless. Escala horizontalmente (el ASG en AWS real lo hace: min 2 / max 4). Depende del pool asyncpg para no saturar PostgreSQL.
-
-### Componentes efímeros (costo por ejecución, no continuo)
-
-- DuckDB (bootstrap/features): picos de memoria durante el batch, libera al terminar.
-- XGBoost (training/inference): picos de CPU/RAM. Con datos reales, train = 7.69M filas (~15-30 s); inference = 11.48M candidatos.
-- ThreadPoolExecutor (bootstrap): red hacia S3.
-
-### Puntos de escalabilidad clave
-
-| Componente | Modo de escalado | Riesgo |
-|------------|------------------|--------|
-| PostgreSQL (`inference_results`) | Vertical (más RAM/CPU) o particionado | **Alto** — 444 MB con solo 950K usuarios; escala lineal con usuarios |
-| Orquestador Airflow | Vertical (`t3.medium`) o executor distribuido | Medio — CPU/RAM del scheduler + workers |
-| MLflow | Horizontal (réplicas) | Bajo — stateless |
-| API | Horizontal (ASG min 2 / max 4) | Medio — pool asyncpg a PG |
-| S3 (raw/processed) | N/A — elástico por diseño | Bajo — 1.56 GB actual |
-
-### Estimación de crecimiento
-
-Con los datos reales medidos:
-- Cada usuario activo genera ~1 fila en `inference_results` (Top-K) → el tamaño crece **lineal** con la base de usuarios.
-- `raw/` y `processed/` crecen con el volumen transaccional diario (9 días → 1.56 GB; un año → ~60 GB aprox.).
-- El modelo (~89 KB) es despreciable y se regenera por batch.
-
----
-
-## 7. Comandos de referencia rápida
+Para el input/output y la racional de cada comando, ver la guía operativa completa en [DEPLOYMENT.md](DEPLOYMENT.md).
 
 | Acción | Comando |
 |--------|---------|
