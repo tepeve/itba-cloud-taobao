@@ -1,7 +1,7 @@
 # Taobao Product Recommendation Pipeline
 
 Pipeline batch de recomendación sobre el dataset de Taobao, emulado en LocalStack con OpenTofu para optimizar el _funnel_ de conversión de un e-commerce.
-Recibe como datos de origen el dataset [https://tianchi.aliyun.com/dataset/649?lang=en-us](User Behavior Data from Taobao for Recommendation de Alibaba) con datos de eventos de navegación de la tienda Taobao. Una vez subidos al datalake se depuran, generan features y se entrena un modelo predictivo para estimar la probabilidad de interacción usuario-ítem. Dicho modelo se usa para predecir los top-k items con mayor probabilidad de engagement para los usuarios registrados habituales (más de 10 interacciones durante el dataset) para día más reciente del dataset. El pipeline termina disponibilizando mediante una API la terna de items por usuario para ser integrados al resto de la plataforma. 
+Recibe como datos de origen el dataset [User Behavior Data from Taobao for Recommendation de Alibaba](https://tianchi.aliyun.com/dataset/649?lang=en-us) con datos de eventos de navegación de la tienda Taobao. Una vez subidos al datalake se depuran, generan features y se entrena un modelo predictivo para estimar la probabilidad de interacción usuario-ítem. Dicho modelo se usa para predecir los top-k items con mayor probabilidad de engagement para los usuarios registrados habituales (más de 10 interacciones durante el dataset) para día más reciente del dataset. El pipeline termina disponibilizando mediante una API la terna de items por usuario para ser integrados al resto de la plataforma. 
 
 ## Quickstart
 
