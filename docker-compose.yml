@@ -5,7 +5,7 @@ services:
     ports:
       - "4566:4566"
     environment:
-      - SERVICES=s3,ec2,rds,elbv2,iam,autoscaling
+      - SERVICES=s3,ec2,rds,elbv2,iam,autoscaling,ssm
       - DEFAULT_REGION=us-east-1
       - DOCKER_HOST=unix:///var/run/docker.sock
       - DEBUG=0
