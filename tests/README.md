@@ -28,18 +28,18 @@ Todas las iteraciones del pipeline quedan cubiertas.
    ```powershell
    docker compose up -d
    ```
-2. **Infraestructura aplicada** (la suite consulta los recursos reales vía boto3, no los archivos de configuración):
+2. **Infraestructura aplicada** (la suite consulta los recursos reales vía boto3, no los archivos de configuración) — desde el directorio `terraform/`:
    ```bash
-   wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao/terraform && tofu apply'
+   tofu apply
    ```
 3. **Entorno de Python**: `.venv` de Linux (Python 3.12) gestionado por uv.
 
 ## Cómo correr los tests
 
-El repo vive en WSL2 pero el shell del agente es PowerShell de Windows. Los tests usan el venv **Linux**, así que siempre se ejecutan dentro de WSL:
+Los tests usan el venv **Linux** (WSL), así que se ejecutan dentro de WSL:
 
 ```bash
-wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/ -v'
+uv run pytest tests/ -v
 ```
 
 Comandos útiles:
@@ -63,7 +63,7 @@ El endpoint se resuelve automáticamente con este orden de prioridad:
 Para forzar un endpoint explícito:
 
 ```bash
-wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && LOCALSTACK_ENDPOINT=http://172.21.16.1:4566 uv run pytest tests/ -v'
+LOCALSTACK_ENDPOINT=http://<gateway-wsl>:4566 uv run pytest tests/ -v
 ```
 
 ## Estructura

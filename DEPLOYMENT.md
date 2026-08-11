@@ -1,48 +1,22 @@
 # Guía de Despliegue y Operación
 
-Documento de referencia con todos los comandos necesarios para desplegar los servicios y ejecutar los scripts del pipeline de recomendación (Taobao → LocalStack).
+Documento de referencia con todos los comandos necesarios para desplegar los servicios y ejecutar los scripts del pipeline de recomendación (Taobao → LocalStack). Las mediciones reales de tiempos y tamaños del pipeline se documentan en [PLANIFICACIÓN_Y_COSTOS.md](PLANIFICACIÓN_Y_COSTOS.md).
 
 ## Tabla de contenidos
 
-1. [Consideraciones de entorno](#1-consideraciones-de-entorno)
-2. [Orden de despliegue](#2-orden-de-despliegue)
-3. [Servicios (Docker Compose)](#3-servicios-docker-compose)
-4. [Infraestructura (OpenTofu → LocalStack)](#4-infraestructura-opentofu--localstack)
-5. [Scripts de inicialización](#5-scripts-de-inicialización)
-6. [Pipeline de datos](#6-pipeline-de-datos)
-7. [API de servicio](#7-api-de-servicio)
-8. [Detalles técnicos del pipeline](#8-detalles-técnicos-del-pipeline)
-9. [Tests](#9-tests)
-10. [Tabla resumen de comandos](#10-tabla-resumen-de-comandos)
-11. [Mediciones reales del pipeline](#11-mediciones-reales-del-pipeline)
+1. [Orden de despliegue](#1-orden-de-despliegue)
+2. [Servicios (Docker Compose)](#2-servicios-docker-compose)
+3. [Infraestructura (OpenTofu → LocalStack)](#3-infraestructura-opentofu--localstack)
+4. [Scripts de inicialización](#4-scripts-de-inicialización)
+5. [Pipeline de datos](#5-pipeline-de-datos)
+6. [API de servicio](#6-api-de-servicio)
+7. [Detalles técnicos del pipeline](#7-detalles-técnicos-del-pipeline)
+8. [Tests](#8-tests)
+9. [Tabla resumen de comandos](#9-tabla-resumen-de-comandos)
 
 ---
 
-## 1. Consideraciones de entorno
-
-El repositorio vive en **WSL2 (Ubuntu)** pero el shell de trabajo es **PowerShell de Windows**. Esto divide el toolchain:
-
-| Herramienta | Dónde corre | Forma de invocación |
-|---|---|---|
-| `uv` / Python / pytest | WSL | `wsl -d Ubuntu -- bash -lc '...'` |
-| OpenTofu (`tofu`) | WSL | `wsl -d Ubuntu -- tofu ...` |
-| `docker` / `docker compose` | Windows | directo desde PowerShell |
-| `git` | WSL | `wsl -d Ubuntu -- bash -lc '...'` |
-
-El `.venv` es de Linux (Python 3.12). **No** ejecutar `uv` desde Windows.
-
-**Endpoint de LocalStack desde WSL:** los scripts y `tofu` (corren en WSL) alcanzan LocalStack (contenedor en Windows) vía la IP del gateway WSL:
-
-```bash
-GW=$(ip route show default | awk '{print $3}')
-export LOCALSTACK_ENDPOINT="http://${GW}:4566"
-```
-
-Los tests (`tests/conftest.py`) detectan el gateway automáticamente.
-
----
-
-## 2. Orden de despliegue
+## 1. Orden de despliegue
 
 El flujo completo, en orden de dependencia:
 
@@ -58,7 +32,7 @@ El flujo completo, en orden de dependencia:
 
 ---
 
-## 3. Servicios (Docker Compose)
+## 2. Servicios (Docker Compose)
 
 ### `docker compose up -d --build`
 
@@ -90,7 +64,7 @@ El flujo completo, en orden de dependencia:
 
 ---
 
-## 4. Infraestructura (OpenTofu → LocalStack)
+## 3. Infraestructura (OpenTofu → LocalStack)
 
 ### `tofu init`
 
@@ -106,7 +80,7 @@ El flujo completo, en orden de dependencia:
 
 ### `tofu apply -auto-approve`
 
-- **Input:** la configuración + `TF_VAR_localstack_endpoint` (ver sección 1). Endpoint por defecto: `http://localhost:4566`.
+- **Input:** la configuración + `TF_VAR_localstack_endpoint` (endpoint por defecto: `http://localhost:4566`).
 - **Output:** crea los recursos en LocalStack:
   - 1 VPC, 1 IGW, 1 EIP, 1 NAT Gateway, 1 VPC Endpoint S3, 4 subredes (2 públicas + 2 privadas), 2 route tables + asociaciones, ruta pública → IGW, ruta privada → NAT + endpoint S3.
   - 4 Security Groups (`sg_alb`, `sg_api_ec2`, `sg_airflow`, `sg_rds`).
@@ -132,7 +106,7 @@ LocalStack **community** no implementa los servicios RDS, ELBv2 y Auto Scaling (
 
 ---
 
-## 5. Scripts de inicialización
+## 4. Scripts de inicialización
 
 ### `uv run python init_db.py`
 
@@ -162,7 +136,7 @@ LocalStack **community** no implementa los servicios RDS, ELBv2 y Auto Scaling (
 
 ---
 
-## 6. Pipeline de datos
+## 5. Pipeline de datos
 
 ### Origen del dataset
 
@@ -251,7 +225,7 @@ kaggle datasets download -d marwa80/userbehavior -p data/raw --unzip
 
 ---
 
-## 7. API de servicio
+## 6. API de servicio
 
 ### `uv run uvicorn api.main:app --host 0.0.0.0 --port 8000`
 
@@ -296,7 +270,7 @@ docker build -f api/Dockerfile -t taobao-api .
 
 ---
 
-## 8. Detalles técnicos del pipeline
+## 7. Detalles técnicos del pipeline
 
 Detalle de las decisiones de implementación de cada etapa (consolidado de la documentación previa).
 
@@ -364,16 +338,17 @@ El DAG `taobao_dag.py` (raíz) sustituye la ejecución manual:
 - Topología declarada: `t_bootstrap >> t_features >> t_training >> t_inference`.
 - Schedule diario (`timedelta(days=1)`), `catchup=False`, `start_date=datetime(2026, 1, 1)`.
 - En la instancia orquestadora (`init_airflow.sh.tpl`), el bucket `taobao-airflow-dags` se sincroniza a `/opt/airflow/dags/` (cron cada 5 min) y el contenedor `apache/airflow:2.9.0` (LocalExecutor) lo ejecuta.
+- En LocalStack la instancia orquestadora es simbólica (mock VM que no procesa `user_data`); la verificación local de la orquestación se hace con `docker-compose.airflow.yml` + `.airflowignore`.
 
 ---
 
-## 9. Tests
+## 8. Tests
 
 Todos los tests son de integración (marcador `integration`) y requieren LocalStack + infraestructura aplicada.
 
 | Comando | Alcance |
 |---|---|
-| `wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run pytest tests/ -v'` | Suite completa |
+| `uv run pytest tests/ -v` | Suite completa |
 | `uv run pytest tests/test_vpc.py` | Red (VPC, subredes, IGW, route tables) |
 | `uv run pytest tests/test_security_groups.py` | Security Groups (lista blanca) |
 | `uv run pytest tests/test_iam.py` | IAM (rol, policy S3, instance profile) |
@@ -388,73 +363,22 @@ Todos los tests son de integración (marcador `integration`) y requieren LocalSt
 | `uv run pytest tests/test_asg.py` | ASG/Launch Template (skipea en LocalStack community) |
 | `uv run pytest tests/test_api.py` | API (200/404, esquema) |
 
-**Prerrequisito para los tests:** LocalStack corriendo (`docker compose up -d`) e infraestructura aplicada (`tofu apply`). El endpoint se resuelve automáticamente (env `LOCALSTACK_ENDPOINT` → gateway WSL → `localhost:4566`).
+**Prerrequisito para los tests:** LocalStack corriendo (`docker compose up -d`) e infraestructura aplicada (`tofu apply`). El endpoint se resuelve automáticamente (env `LOCALSTACK_ENDPOINT` o fallback `localhost:4566`).
 
 ---
 
-## 10. Tabla resumen de comandos
+## 9. Tabla resumen de comandos
 
 | Paso | Comando (Windows) | Comando (WSL) |
 |---|---|---|
 | Levantar servicios | `docker compose up -d --build` | — |
 | Estado de servicios | `docker compose ps` | — |
 | Bajar servicios | `docker compose down` | — |
-| Infraestructura | — | `wsl -d Ubuntu -- tofu apply -var="alb_asg_enabled=false"` |
-| Inicializar DB | — | `wsl -d Ubuntu -- uv run python init_db.py` |
-| Bootstrap de datos | — | `wsl -d Ubuntu -- uv run python data_bootstrap.py` |
-| Feature store | — | `wsl -d Ubuntu -- uv run python pipeline_features.py` |
-| Entrenamiento | — | `wsl -d Ubuntu -- uv run python pipeline_training.py` |
-| Inferencia | — | `wsl -d Ubuntu -- uv run python pipeline_inference.py` |
-| API | — | `wsl -d Ubuntu -- uv run uvicorn api.main:app --port 8000` |
-| Tests | — | `wsl -d Ubuntu -- uv run pytest tests/ -v` |
-
----
-
-## 11. Mediciones reales del pipeline
-
-Medidas sobre el dataset completo (100M filas) en LocalStack con datos reales.
-
-### Tiempos de ejecución (medidos)
-
-| Etapa | Dataset completo | Dataset toy (fixtures) |
-|-------|------------------|------------------------|
-| `data_bootstrap.py` | ~1-2 min (CSV 3.5 GB → Parquet) | segundos |
-| `pipeline_features.py` | ~2-3 min | ~1 s |
-| `pipeline_training.py` | ~15-30 s (7.69M filas) | ~2 s |
-| `pipeline_inference.py` | ~1-2 min (11.5M candidatos) | segundos |
-
-> Nota: los tiempos varían según hardware; DuckDB procesa el CSV completo en ~12 s (solo lectura).
-
-### Tamaños por capa (datos reales)
-
-| Capa | Ubicación | Tamaño | Detalle |
-|------|-----------|--------|---------|
-| **Raw** | `s3://taobao-datalake/raw/` | **1.14 GB** | 9 particiones `event_date=`, 100M filas, 969,353 usuarios |
-| **Features** | `s3://taobao-datalake/processed/` | **418 MB** | 4 splits (Parquet comprimido) |
-| &nbsp;&nbsp;→ train | | 101.5 MB | 7.69M filas (3.08M pos + 4.61M neg) |
-| &nbsp;&nbsp;→ val | | 33.8 MB | 2.71M filas |
-| &nbsp;&nbsp;→ test | | 42.1 MB | 3.44M filas |
-| &nbsp;&nbsp;→ infer | | 240.7 MB | 11.48M candidatos (sin label) |
-| **Modelo** | `s3://taobao-mlflow-artifacts/` | **~89 KB** | `model.ubj` XGBoost (200 árboles, depth 4) |
-| &nbsp;&nbsp;→ store total | | 1.4 MB | 22 modelos históricos + metadata |
-| **RDS (servicio)** | PostgreSQL `inference_results` | **444 MB** | 950,927 filas Top-K (con índice) |
-| &nbsp;&nbsp;→ base `taobao` total | | 452 MB | |
-| &nbsp;&nbsp;→ base `mlflow` | | 11.4 MB | backend store MLflow |
-
-### Total desplegado
-
-| Componente | Tamaño |
-|------------|--------|
-| S3 (raw + processed) | 1.56 GB |
-| MLflow artifacts | 1.4 MB |
-| PostgreSQL (taobao + mlflow) | 0.46 GB |
-| **TOTAL** | **~2.02 GB** |
-
-Referencia: el CSV original en disco pesa 3.5 GB (fuente, no desplegado).
-
-### Conclusiones sobre costos/computación
-
-1. **El muestreo negativo domina las filas pero no el tamaño:** los 4.6M negativos de train son ~60% de sus filas, pero el Parquet comprime a ~30 B/fila → `processed/` total 418 MB, solo ~1/3 del raw.
-2. **El `inference_results` es el mayor costo relacional** (444 MB para 950K filas Top-K), mayor que las matrices de features.
-3. **El modelo es despreciable** (~89 KB).
-4. **Escalabilidad:** todo el pipeline con datos reales cabe en ~2 GB, cómodo para LocalStack (disco local) y para AWS (S3 y RDS de bajo costo).
+| Infraestructura | — | `tofu apply -var="alb_asg_enabled=false"` |
+| Inicializar DB | — | `uv run python init_db.py` |
+| Bootstrap de datos | — | `uv run python data_bootstrap.py` |
+| Feature store | — | `uv run python pipeline_features.py` |
+| Entrenamiento | — | `uv run python pipeline_training.py` |
+| Inferencia | — | `uv run python pipeline_inference.py` |
+| API | — | `uv run uvicorn api.main:app --port 8000` |
+| Tests | — | `uv run pytest tests/ -v` |
