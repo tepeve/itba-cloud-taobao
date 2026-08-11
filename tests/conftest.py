@@ -251,6 +251,16 @@ def nat_gateway(ec2_client, vpc):
 
 
 @pytest.fixture(scope="session")
+def vpc_endpoint_s3(ec2_client, vpc):
+    response = ec2_client.describe_vpc_endpoints(
+        Filters=[{"Name": "vpc-id", "Values": [vpc["VpcId"]]}]
+    )
+    endpoints = [e for e in response["VpcEndpoints"] if e["ServiceName"].endswith(".s3")]
+    assert endpoints, f"VPC Endpoint S3 en {vpc['VpcId']} no encontrado"
+    return endpoints[0]
+
+
+@pytest.fixture(scope="session")
 def security_groups(ec2_client, vpc):
     response = ec2_client.describe_security_groups(
         Filters=[{"Name": "vpc-id", "Values": [vpc["VpcId"]]}]

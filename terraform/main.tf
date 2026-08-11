@@ -1,6 +1,7 @@
 module "networking" {
   source              = "./modules/networking"
   project             = var.project
+  region              = var.region
   vpc_cidr            = var.vpc_cidr
   azs                 = var.azs
   public_subnet_cidrs  = var.public_subnet_cidrs

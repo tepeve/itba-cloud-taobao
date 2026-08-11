@@ -72,6 +72,16 @@ def test_nat_gateway_has_eip(nat_gateway):
     assert any(a.get("AllocationId") for a in addresses)
 
 
+def test_vpc_endpoint_s3_is_gateway(vpc_endpoint_s3):
+    assert vpc_endpoint_s3["VpcEndpointType"] == "Gateway"
+    assert vpc_endpoint_s3["ServiceName"].endswith(".s3")
+
+
+def test_vpc_endpoint_s3_attached_to_private_rt(vpc_endpoint_s3, route_tables):
+    priv_rt = _route_table_by_name(route_tables, "taobao-priv-rt")
+    assert priv_rt["RouteTableId"] in vpc_endpoint_s3["RouteTableIds"]
+
+
 def test_public_subnets_associated_to_public_rt(route_tables, public_subnets):
     pub_rt = _route_table_by_name(route_tables, "taobao-pub-rt")
     associated = {
