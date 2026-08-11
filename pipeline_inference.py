@@ -11,15 +11,15 @@ from pipeline_training import FEATURE_COLS, EXPERIMENT_NAME, _configure_mlflow_e
 
 BUCKET = os.environ.get("BUCKET", "taobao-datalake")
 PROCESSED_PREFIX = os.environ.get("PROCESSED_PREFIX", "processed")
-ENDPOINT = os.environ.get("LOCALSTACK_ENDPOINT", "http://localhost:4566")
-MLFLOW_TRACKING_URI = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
+ENDPOINT = os.environ.get("LOCALSTACK_ENDPOINT")
+MLFLOW_TRACKING_URI = os.environ.get("MLFLOW_TRACKING_URI")
 TOP_K = int(os.environ.get("TOP_K", "10"))
 
-PGHOST = os.environ.get("PGHOST", "localhost")
-PGPORT = int(os.environ.get("PGPORT", "5432"))
-PGUSER = os.environ.get("PGUSER", "taobao")
-PGPASSWORD = os.environ.get("PGPASSWORD", "taobao123")
-PGDATABASE = os.environ.get("PGDATABASE", "taobao")
+PGHOST = os.environ.get("PGHOST")
+PGPORT = int(os.environ.get("PGPORT"))
+PGUSER = os.environ.get("PGUSER")
+PGPASSWORD = os.environ.get("PGPASSWORD")
+PGDATABASE = os.environ.get("PGDATABASE")
 
 UPSERT_SQL = """
 INSERT INTO inference_results (user_id, recommended_items)

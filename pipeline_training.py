@@ -18,8 +18,8 @@ from pipeline_features import _configure_s3
 
 BUCKET = os.environ.get("BUCKET", "taobao-datalake")
 PROCESSED_PREFIX = os.environ.get("PROCESSED_PREFIX", "processed")
-ENDPOINT = os.environ.get("LOCALSTACK_ENDPOINT", "http://localhost:4566")
-MLFLOW_TRACKING_URI = os.environ.get("MLFLOW_TRACKING_URI", "http://localhost:5000")
+ENDPOINT = os.environ.get("LOCALSTACK_ENDPOINT")
+MLFLOW_TRACKING_URI = os.environ.get("MLFLOW_TRACKING_URI")
 EXPERIMENT_NAME = "taobao_recommender"
 
 FEATURE_COLS = [

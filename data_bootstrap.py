@@ -62,7 +62,7 @@ def write_parquet(con, csv_path, out_dir):
 
 
 def _endpoint_with_defaults(endpoint):
-    return endpoint or os.environ.get("LOCALSTACK_ENDPOINT", "http://localhost:4566")
+    return endpoint or os.environ.get("LOCALSTACK_ENDPOINT")
 
 
 def upload_all(endpoint, bucket, prefix, out_dir, workers=DEFAULT_WORKERS):

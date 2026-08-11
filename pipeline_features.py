@@ -5,7 +5,7 @@ import duckdb
 BUCKET = os.environ.get("BUCKET", "taobao-datalake")
 RAW_PREFIX = os.environ.get("RAW_PREFIX", "raw")
 PROCESSED_PREFIX = os.environ.get("PROCESSED_PREFIX", "processed")
-ENDPOINT = os.environ.get("LOCALSTACK_ENDPOINT", "http://localhost:4566")
+ENDPOINT = os.environ.get("LOCALSTACK_ENDPOINT")
 EPSILON = float(os.environ.get("EPSILON", "1e-6"))
 NEG_RATIO = int(os.environ.get("NEG_RATIO", "4"))
 TOP_POPULAR = int(os.environ.get("TOP_POPULAR", "20"))
