@@ -11,7 +11,7 @@ TP Integrador (ITBA): pipeline batch de recomendación sobre el dataset Taobao, 
 
 ## Workflow por iteraciones
 
-El proyecto avanza en 6 iteraciones (grafo acíclico). **No ejecutar todas a la vez ni avanzar a la siguiente sin confirmación explícita del usuario.** Estado actual: **todas las iteraciones completas** (IaC en `terraform/`, pipeline batch, tests de integración). Los scripts ejecutables son: `data_bootstrap.py`, `pipeline_features.py`, `pipeline_training.py`, `pipeline_inference.py`, `init_db.py`, `init_mlflow_db.py`, `api/main.py`.
+El proyecto avanza en 6 iteraciones (grafo acíclico). **No ejecutar todas a la vez ni avanzar a la siguiente sin confirmación explícita del usuario.** Estado actual: **todas las iteraciones completas** (IaC en `terraform/`, pipeline batch, tests de integración). Los scripts ejecutables son: `data_bootstrap.py`, `pipeline_features.py`, `pipeline_training.py`, `pipeline_inference.py`, `init_db.py`, `init_mlflow_db.py`, `api/main.py`. `main.py` (raíz) es un stub vacío (`print("Hello from taobao!")`), no un entrypoint.
 
 Reglas de negocio clave por iteración:
 
@@ -22,7 +22,7 @@ Reglas de negocio clave por iteración:
 
 El repo vive en **WSL2 (Ubuntu)** pero el shell del agente es **PowerShell de Windows**. El toolchain está dividido:
 
-- **Python / uv / pytest → solo WSL.** El `.venv` es Linux (Python 3.12). Ejecutar: `wsl -d Ubuntu -- uv run pytest`, `wsl -d Ubuntu -- uv run python main.py`. `uv run` desde Windows NO funciona (el venv no es de Windows).
+- **Python / uv / pytest → solo WSL.** El `.venv` es Linux (Python 3.12). Ejecutar: `wsl -d Ubuntu -- uv run pytest`, `wsl -d Ubuntu -- uv run python main.py`. `uv run` desde Windows NO funciona (el venv no es de Windows). Tests: todos marcados `integration` → requieren LocalStack `up` + `tofu apply` previo. Correr en WSL: `wsl -d Ubuntu -- uv run pytest tests/ -v`; un solo test: `wsl -d Ubuntu -- uv run pytest tests/test_iam.py::test_role_trust_ec2 -v`.
 - **OpenTofu → solo WSL:** `wsl -d Ubuntu -- tofu ...`. No existe binario `terraform`.
 - **Docker / Compose → solo Windows:** `docker compose ...` desde PowerShell. La integración WSL de Docker Desktop está deshabilitada, así que `docker` falla dentro de WSL. LocalStack se levanta como contenedor desde Windows (puerto `localhost:4566`).
 - **LocalStack pinned a `localstack/localstack:3.5.0`**: `:latest` exige licencia (exit 55). No cambiarlo.
