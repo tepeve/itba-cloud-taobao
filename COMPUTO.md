@@ -2,69 +2,53 @@
 
 ## Resumen ejecutivo
 
-La arquitectura del proyecto define 4 capas lógicas. La **persistencia** (S3, red, Security Groups, IAM), el **bootstrap de datos** y el **pipeline analítico** están implementados y verificados en LocalStack. Sin embargo, **la capa de cómputo (EC2/Lambda) aún no está materializada**: los scripts del pipeline (`data_bootstrap.py`, `pipeline_features.py`, `pipeline_training.py`, `pipeline_inference.py`) corren en el host local (WSL) y no existe ninguna instancia de cómputo emulada en LocalStack.
-
-Este documento registra ese estado, las razones técnicas y los enfoques propuestos para implementarla en futuras iteraciones.
+La capa de cómputo del pipeline está **materializada en LocalStack** bajo el paradigma IaaS orquestado por Airflow (Sprint 2, rama `dev-compute-airflow-vpc`). La persistencia (S3, red con NAT Gateway y VPC Endpoint S3, Security Groups, IAM), el bootstrap, el feature store, el modelado y la inferencia están implementados y verificados. El orquestador Apache Airflow se declara como instancia EC2 (`aws_instance`) y el DAG `taobao_dag.py` sustituye la ejecución manual secuencial de los scripts.
 
 ## Estado actual (verificado)
 
 | Componente de cómputo | ¿Materializado en LocalStack? | Dónde corre realmente |
 |---|---|---|
-| Instancia EC2 batch | **No** | Host WSL (scripts Python con DuckDB/XGBoost) |
-| Instancia EC2 API | **No** | Host WSL (`uvicorn`) |
+| Instancia EC2 orquestadora (Airflow) | **Sí** (`aws_instance`, mock VM) | Declarada en IaC; `describe_instances` la muestra `running` |
+| Instancias de servicio (FastAPI) | No — **gated** (`alb_asg_enabled=false` en LocalStack) | Definido en IaC; en local se sirve vía `uvicorn`/`TestClient` |
+| Launch Template (API) | No — **gated** | Definido en IaC (`templatefile` de `init_api.sh.tpl`) |
+| Auto Scaling Group | No — **gated** | Definido en IaC |
+| Application Load Balancer | No — **gated** (ELBv2 es Pro) | Definido en IaC |
 | Lambda function | **No** (servicio no habilitado en `SERVICES`) | — |
-| Launch Template (API) | No — **gated** (`alb_asg_enabled=false`) | Definido en IaC, no creado |
-| Auto Scaling Group | No — **gated** | Definido en IaC, no creado |
-| Application Load Balancer | No — **gated** | Definido en IaC, no creado |
 
-### Qué sí existe (relacionado con cómputo)
+### Qué existe en LocalStack (Sprint 2)
 
-- `aws_iam_instance_profile` (`taobao-batch-instance-profile`) — Iteración 1. Empaqueta el rol `taobao-batch-role` que una instancia EC2 batch asumiría para acceder a S3. **Materializado** en LocalStack.
-- `aws_launch_template` + `aws_autoscaling_group` + `aws_lb` — Iteración 6, módulo `alb_asg`. **Definidos pero gated** porque ELBv2 y Auto Scaling son features **Pro** de LocalStack (no implementadas en community).
-- `aws_db_instance` (módulo `rds`) — **gated** por la misma razón (RDS es Pro).
+- `aws_instance` `taobao-airflow` (módulo `compute`) — instancia simbólica en subred privada con `sg_airflow`, `iam_instance_profile` batch y `user_data = templatefile(init_airflow.sh.tpl)`. **Materializada** (mock VM).
+- `aws_eip` + `aws_nat_gateway` — salida a internet para las instancias privadas (descarga de dependencias durante `user_data`).
+- `aws_vpc_endpoint` (Gateway S3) — tráfico DuckDB→S3 por la RT privada, evitando costos de NAT.
+- `taobao-airflow-dags` bucket (módulo `s3`) — repo de DAGs/scripts sincronizado por la instancia Airflow.
+- `aws_ssm_parameter` `/taobao/prod/rds_password` (`SecureString`) + policy `ssm:GetParameter`+`kms:Decrypt` — secretos declarativos, sin credenciales en texto plano.
+- `aws_iam_instance_profile` (`taobao-batch-instance-profile`) — perfil común orquestador + instancias de servicio.
 
-## Por qué no hay cómputo emulado (restricciones del emulador)
+### Gated (definidos, no creados en LocalStack)
 
-LocalStack **community** (la edición usada, `localstack/localstack:3.5.0`) tiene soporte parcial:
+- `aws_lb` (ALB público), `aws_lb_target_group`, `aws_lb_listener`, `aws_launch_template`, `aws_autoscaling_group` — módulo `alb_asg`. ELBv2 y Auto Scaling son features **Pro** de LocalStack community (no implementadas).
+- `aws_db_instance` (RDS) — **gated** por la misma razón (RDS es Pro). La base real es el sidecar `postgres:15` del compose.
+
+## Restricciones del emulador
+
+LocalStack **community** (`localstack/localstack:3.5.0`) tiene soporte parcial:
 
 | Servicio | Soporte en community | Uso en el proyecto |
 |----------|----------------------|--------------------|
-| EC2 (VPC, subredes, SG, IAM, `aws_instance`) | **Sí** | Red/SG/IAM materializados |
-| ELBv2, Auto Scaling, Launch Template | **No** (Pro) | Gated |
+| EC2 (VPC, subredes, SG, IAM, `aws_instance`) | **Sí** | Red/SG/IAM/orquestador materializados |
+| NAT Gateway, VPC Endpoint (Gateway) | **Sí** (CRUD) | Materializados |
+| SSM (Parameter Store) | **Sí** (Hobby) | Secretos materializados |
+| ELBv2, Auto Scaling, Launch Template | **No** (Pro) | Gated (`alb_asg_enabled`) |
 | RDS | **No** (Pro) | Gated + sidecar postgres |
 | Lambda | Sí (básico), pero no habilitado en `SERVICES` | No usado |
-| DynamoDB | Sí, pero no habilitado en `SERVICES` | No usado (PostgreSQL es el key-value store) |
 
-La decisión del proyecto fue: **las bases y el cómputo real corren como servicios locales** (contenedor `taobao_postgres` + scripts en el host), mientras LocalStack emula el plano de control (API de AWS). Los recursos "gated" (`rds_enabled`, `alb_asg_enabled`) quedan declarados en IaC, correctos para AWS real, pero no se crean en LocalStack.
+El cómputo real del pipeline corre en el host WSL (DuckDB/XGBoost/uvicorn); LocalStack emula el plano de control (API de AWS). La instancia EC2 orquestadora es **simbólica**: en mock VM manager LocalStack no procesa `user_data` ni arranca Airflow — representa el plano de control declarativo. En AWS real, `user_data` instalaría Docker y levantaría el contenedor `apache/airflow:2.9.0` (LocalExecutor).
 
-## Enfoques de implementación propuestos (futuras iteraciones)
+## Arquitectura de cómputo (Sprint 2)
 
-### Enfoque A — Instancia EC2 batch materializable (recomendado)
-
-LocalStack community **sí soporta `aws_instance`** (verificado: `describe_images` devuelve AMIs). Se podría crear un módulo `terraform/modules/ec2` con:
-
-- `aws_instance` batch (AMI `amzn2`, `t3.micro`) en subred privada, con `iam_instance_profile = taobao-batch-instance-profile`, `vpc_security_group_ids = [sg_batch_ec2]`.
-- `user_data` que ejecute el pipeline (o un script que apunte a los jobs batch).
-
-**Ventajas:** visible y verificable en `tofu apply` y tests (`describe_instances`); sin flags Pro. Es el cómputo batch del enunciado ("instancias EC2 efímeras con Instance Profiles").
-
-**Limitaciones:** LocalStack no ejecuta realmente el software dentro de la instancia; la instancia es simbólica (estado `running`), y `user_data` no se procesa. El cómputo real seguiría corriendo en el host; la instancia representaría el plano de control.
-
-### Enfoque B — Instancia EC2 para la API (servicio)
-
-Similar al A, pero para la capa de servicio: una `aws_instance` (o el Launch Template ya definido) que represente la instancia que sirve FastAPI. En AWS real se materializaría vía ASG + ALB (ya declarado en `alb_asg`).
-
-### Enfoque C — Lambda para procesamiento batch
-
-Habilitar `lambda` en `SERVICES` (`docker-compose.yml`) y agregar una `aws_lambda_function` que ejecute un job de procesamiento. LocalStack community soporta Lambda básica (requiere reiniciar el contenedor con `SERVICES` actualizado). Más fiel al "serverless" pero cambia el diseño actual (que es batch por EC2, no serverless).
-
-### Enfoque D — Documentar como está (mínimo)
-
-Reconocer explícitamente que el cómputo es local por emulación y que en AWS real se materializaría con EC2/ASG (ya declarado). No requiere código nuevo. Es la opción adoptada hasta la fecha.
-
-## Recomendación
-
-Para el examen, el **Enfoque A** es el más valioso: materializar al menos una `aws_instance` batch en LocalStack (soporte real) para que exista una unidad de cómputo verificable, manteniendo el resto gated para AWS real. Si se prioriza el alcance, combinar A (batch) + reutilizar el `alb_asg` gated (API) documentando su activación con `-var="alb_asg_enabled=true"`.
+- **Orquestador (Airflow):** `aws_instance` `taobao-airflow` en subred privada. `user_data` (`init_airflow.sh.tpl`): instala Docker, sincroniza DAGs desde `taobao-airflow-dags` (cron cada 5 min), resuelve la contraseña DB vía SSM y levanta `apache/airflow:2.9.0` con `LocalExecutor` apuntando al esquema `airflow` en RDS.
+- **Capa de servicio (FastAPI):** Launch Template (`init_api.sh.tpl`): instala Docker, sincroniza `api/` desde `taobao-airflow-dags`, compila `taobao-api:latest` y ejecuta el contenedor con `--network host` y credenciales RDS inyectadas. En LocalStack el Launch Template/ASG/ALB quedan gated; en local la API se prueba con `TestClient`.
+- **DAG `taobao_dag.py`:** `BashOperator` con `env=env_vars` (BUCKET, MLFLOW_TRACKING_URI, PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE, LOCALSTACK_ENDPOINT) y topología `t_bootstrap >> t_features >> t_training >> t_inference`. Los scripts analíticos leen estas variables **sin fallbacks `localhost`** (inyección única de contexto vía Airflow).
 
 ## Cómo se activarían los recursos gated en AWS real
 
@@ -74,5 +58,7 @@ wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao/terraform && tofu apply -var="r
 ```
 
 En ese despliegue, el cómputo quedaría:
-- **Batch**: instancias EC2 efímeras con `taobao-batch-instance-profile` (por implementar, Enfoque A).
-- **API**: ASG (min 2 / max 4) en subredes privadas, detrás del ALB público (ya definido).
+- **Orquestador**: `aws_instance` Airflow con `taobao-batch-instance-profile` y `init_airflow.sh.tpl` (Docker + Airflow LocalExecutor).
+- **API**: ASG (min 2 / max 4) en subredes privadas con Launch Template `init_api.sh.tpl`, detrás del ALB público (puerto 80 → 8000).
+
+> En LocalStack, `tofu apply` se corre con **`-var alb_asg_enabled=false`** (y `rds_enabled=false` por defecto): el default declarativo de `alb_asg_enabled` es `true`, pero ELBv2/ASG no son materializables en community.

@@ -47,13 +47,14 @@ Los tests (`tests/conftest.py`) detectan el gateway automáticamente.
 El flujo completo, en orden de dependencia:
 
 1. **Servicios**: `docker compose up -d --build` (LocalStack + PostgreSQL + MLflow).
-2. **Infraestructura**: `tofu init && tofu apply` (bucket, red, SG, IAM, RDS gated, ALB/ASG gated).
+2. **Infraestructura**: `tofu init && tofu apply -var="alb_asg_enabled=false"` (bucket, red con NAT/endpoint, SG, IAM, SSM, cómputo orquestador; ALB/ASG gated).
 3. **Inicialización DB**: `uv run python init_db.py` (tabla `inference_results`).
-4. **Bootstrap de datos**: `uv run python data_bootstrap.py` (CSV → Parquet en S3 `raw/`).
-5. **Feature store**: `uv run python pipeline_features.py` (raw → matrices en `processed/`).
-6. **Entrenamiento**: `uv run python pipeline_training.py` (XGBoost → MLflow).
-7. **Inferencia**: `uv run python pipeline_inference.py` (modelo → Top-K en PostgreSQL).
-8. **API**: `uv run uvicorn api.main:app --port 8000` (sirve las recomendaciones).
+4. **Orquestación (producción)**: el DAG `taobao_dag.py` en Airflow ejecuta los pasos 5-8 vía `BashOperator` (inyectando el contexto `env_vars`). En local se ejecutan manualmente:
+5. **Bootstrap de datos**: `uv run python data_bootstrap.py` (CSV → Parquet en S3 `raw/`).
+6. **Feature store**: `uv run python pipeline_features.py` (raw → matrices en `processed/`).
+7. **Entrenamiento**: `uv run python pipeline_training.py` (XGBoost → MLflow).
+8. **Inferencia**: `uv run python pipeline_inference.py` (modelo → Top-K en PostgreSQL).
+9. **API**: `uv run uvicorn api.main:app --port 8000` (sirve las recomendaciones).
 
 ---
 
@@ -107,18 +108,20 @@ El flujo completo, en orden de dependencia:
 
 - **Input:** la configuración + `TF_VAR_localstack_endpoint` (ver sección 1). Endpoint por defecto: `http://localhost:4566`.
 - **Output:** crea los recursos en LocalStack:
-  - 1 VPC, 1 IGW, 4 subredes (2 públicas + 2 privadas), 2 route tables + asociaciones, 1 ruta pública → IGW.
-  - 4 Security Groups (`sg_alb`, `sg_api_ec2`, `sg_batch_ec2`, `sg_rds`).
-  - Rol IAM `taobao-batch-role` + policy S3 + instance profile.
-  - Buckets `taobao-datalake` y `taobao-mlflow-artifacts` (con bloqueo de acceso público).
+  - 1 VPC, 1 IGW, 1 EIP, 1 NAT Gateway, 1 VPC Endpoint S3, 4 subredes (2 públicas + 2 privadas), 2 route tables + asociaciones, ruta pública → IGW, ruta privada → NAT + endpoint S3.
+  - 4 Security Groups (`sg_alb`, `sg_api_ec2`, `sg_airflow`, `sg_rds`).
+  - Rol IAM `taobao-batch-role` + policy S3 + policy SSM + instance profile + SSM Parameter `/taobao/prod/rds_password`.
+  - Buckets `taobao-datalake`, `taobao-mlflow-artifacts` y `taobao-airflow-dags` (con bloqueo de acceso público).
+  - Instancia EC2 `taobao-airflow` (orquestador, mock VM) con `user_data` desde `init_airflow.sh.tpl`.
   - Imprime los outputs (IDs, ARNs).
-- **Racional:** materializa la "Landing Zone" en el emulador. Idempotente (re-aplicar no duplica).
+- **Racional:** materializa la "Landing Zone" + cómputo orquestado en el emulador. Idempotente (re-aplicar no duplica).
 
 ### Recursos gated (`rds_enabled`, `alb_asg_enabled`)
 
 LocalStack **community** no implementa los servicios RDS, ELBv2 y Auto Scaling (features Pro). Por eso los módulos `rds` y `alb_asg` están **gated**:
 
-- Por defecto (`false`): `tofu apply` converge sin crear esos recursos (válido para LocalStack).
+- `alb_asg_enabled` tiene default declarativo `true` (IaC para AWS real), pero en LocalStack se aplica con **`-var alb_asg_enabled=false`** — sin el override, `tofu apply` intenta crear `aws_lb` (ELBv2) y falla en community.
+- `rds_enabled` mantiene default `false`; el motor real es el sidecar `postgres:15`.
 - Para AWS real: `tofu apply -var="rds_enabled=true" -var="alb_asg_enabled=true"` (crea la instancia RDS, el ALB público, target group, launch template y Auto Scaling Group en subredes privadas).
 
 ### `tofu destroy`
@@ -183,7 +186,7 @@ kaggle datasets download -d marwa80/userbehavior -p data/raw --unzip
   | `RAW_CSV` | `data/raw/UserBehavior.csv` | CSV crudo (sin header, ~100M filas) |
   | `PARQUET_DIR` | `data/processed/parquet` | Directorio local de Parquet |
   | `DB_PATH` | `data/tmp/bootstrap.duckdb` | DuckDB temporal |
-  | `LOCALSTACK_ENDPOINT` | `http://localhost:4566` | Endpoint LocalStack |
+  | `LOCALSTACK_ENDPOINT` | **obligatoria** (sin default) | Endpoint LocalStack |
   | `BUCKET` | `taobao-datalake` | Bucket destino |
 - **Output:** particiones Hive en `s3://taobao-datalake/raw/event_date=YYYY-MM-DD/*.parquet`. Imprime:
   ```
@@ -206,7 +209,7 @@ kaggle datasets download -d marwa80/userbehavior -p data/raw --unzip
   | `EPSILON` | `1e-6` |
   | `NEG_RATIO` | `4` |
   | `TOP_POPULAR` | `20` |
-  | `LOCALSTACK_ENDPOINT` | `http://localhost:4566` |
+  | `LOCALSTACK_ENDPOINT` | **obligatoria** (sin default) |
 - **Output:** matrices en `s3://taobao-datalake/processed/split={train|val|test|infer}/` con las features y el label. Imprime:
   ```
   train_pos=N train_neg=N val=N test=N infer=N
@@ -220,8 +223,8 @@ kaggle datasets download -d marwa80/userbehavior -p data/raw --unzip
   |---|---|
   | `BUCKET` | `taobao-datalake` |
   | `PROCESSED_PREFIX` | `processed` |
-  | `LOCALSTACK_ENDPOINT` | `http://localhost:4566` |
-  | `MLFLOW_TRACKING_URI` | `http://localhost:5000` |
+  | `LOCALSTACK_ENDPOINT` | **obligatoria** (sin default) |
+  | `MLFLOW_TRACKING_URI` | **obligatoria** (sin default) |
 - **Output:** un run `FINISHED` en el experimento `taobao_recommender` de MLflow con el modelo XGBoost, hiperparámetros y 6 métricas de test. Imprime:
   ```
   run_id=... test_auc_roc=... test_logloss=... test_precision=... test_recall=... test_f1=... test_accuracy=...
@@ -235,11 +238,11 @@ kaggle datasets download -d marwa80/userbehavior -p data/raw --unzip
   |---|---|
   | `BUCKET` | `taobao-datalake` |
   | `PROCESSED_PREFIX` | `processed` |
-  | `LOCALSTACK_ENDPOINT` | `http://localhost:4566` |
-  | `MLFLOW_TRACKING_URI` | `http://localhost:5000` |
+  | `LOCALSTACK_ENDPOINT` | **obligatoria** (sin default) |
+  | `MLFLOW_TRACKING_URI` | **obligatoria** (sin default) |
   | `TOP_K` | `10` |
-  | `PGHOST`/`PGPORT` | `localhost`/`5432` |
-  | `PGUSER`/`PGPASSWORD`/`PGDATABASE` | `taobao`/`taobao123`/`taobao` |
+  | `PGHOST`/`PGPORT` | **obligatorias** (sin default) |
+  | `PGUSER`/`PGPASSWORD`/`PGDATABASE` | **obligatorias** (sin default) |
 - **Output:** filas en `inference_results` con el Top-K por usuario (`recommended_items` como lista JSONB de `{"item_id", "score"}`). Imprime:
   ```
   run_id=... usuarios=N filas_persistidas=N
@@ -334,7 +337,7 @@ Para train/val/test se cruzan los usuarios con los `TOP_POPULAR` ítems (default
 
 ### Gobernanza MLflow
 
-- Tracking URI: `http://localhost:5000` (env `MLFLOW_TRACKING_URI`).
+- Tracking URI: env `MLFLOW_TRACKING_URI` (inyectado por Airflow; en local se exporta explícitamente, sin fallback `localhost`).
 - Experimento: `taobao_recommender`.
 - `mlflow.xgboost.autolog(log_models=True)` registra topología, hiperparámetros y métricas; además se hace `mlflow.xgboost.log_model(model, "model")` explícito.
 - Backend store: `postgresql+psycopg2://taobao:taobao123@taobao_postgres:5432/mlflow`.
@@ -347,10 +350,20 @@ El módulo `terraform/modules/alb_asg` define:
 - `aws_lb` (ALB público, `sg_alb`, subredes públicas).
 - `aws_lb_target_group` (HTTP 8000, health check `/health`).
 - `aws_lb_listener` (80 → target group).
-- `aws_launch_template` (user_data que lanza el contenedor API, `sg_api_ec2`).
+- `aws_launch_template` (`user_data = templatefile("init_api.sh.tpl", ...)`, IAM profile batch, subredes privadas).
 - `aws_autoscaling_group` (subredes privadas, min 2 / max 4).
 
-**LocalStack community no implementa ELBv2 ni Auto Scaling** (features Pro). El módulo está **gated** con `alb_asg_enabled` (`false` por defecto en LocalStack). Para AWS real: `tofu apply -var="alb_asg_enabled=true"`.
+**LocalStack community no implementa ELBv2 ni Auto Scaling** (features Pro). El módulo está **gated**: default `alb_asg_enabled=true` (IaC AWS real) pero en LocalStack se aplica con `-var="alb_asg_enabled=false"`.
+
+### Orquestación (Airflow DAG)
+
+El DAG `taobao_dag.py` (raíz) sustituye la ejecución manual:
+
+- `BashOperator` invocando `uv run python <script.py>` para `data_bootstrap`, `pipeline_features`, `pipeline_training`, `pipeline_inference`.
+- Diccionario `env` inyectando el contexto: `BUCKET`, `MLFLOW_TRACKING_URI`, `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`, `LOCALSTACK_ENDPOINT` (mapeados desde Airflow Variables `{{ var.value.* }}`).
+- Topología declarada: `t_bootstrap >> t_features >> t_training >> t_inference`.
+- Schedule diario (`timedelta(days=1)`), `catchup=False`, `start_date=datetime(2026, 1, 1)`.
+- En la instancia orquestadora (`init_airflow.sh.tpl`), el bucket `taobao-airflow-dags` se sincroniza a `/opt/airflow/dags/` (cron cada 5 min) y el contenedor `apache/airflow:2.9.0` (LocalExecutor) lo ejecuta.
 
 ---
 
@@ -371,6 +384,8 @@ Todos los tests son de integración (marcador `integration`) y requieren LocalSt
 | `uv run pytest tests/test_features.py` | Feature store (splits, disyunción temporal) |
 | `uv run pytest tests/test_training.py` | Training (run, 6 métricas, artefacto xgboost) |
 | `uv run pytest tests/test_inference.py` | Inferencia (Top-K persistido, upsert) |
+| `uv run pytest tests/test_compute.py` | Cómputo (instancia orquestadora Airflow) |
+| `uv run pytest tests/test_asg.py` | ASG/Launch Template (skipea en LocalStack community) |
 | `uv run pytest tests/test_api.py` | API (200/404, esquema) |
 
 **Prerrequisito para los tests:** LocalStack corriendo (`docker compose up -d`) e infraestructura aplicada (`tofu apply`). El endpoint se resuelve automáticamente (env `LOCALSTACK_ENDPOINT` → gateway WSL → `localhost:4566`).
@@ -384,7 +399,7 @@ Todos los tests son de integración (marcador `integration`) y requieren LocalSt
 | Levantar servicios | `docker compose up -d --build` | — |
 | Estado de servicios | `docker compose ps` | — |
 | Bajar servicios | `docker compose down` | — |
-| Infraestructura | — | `wsl -d Ubuntu -- tofu apply` |
+| Infraestructura | — | `wsl -d Ubuntu -- tofu apply -var="alb_asg_enabled=false"` |
 | Inicializar DB | — | `wsl -d Ubuntu -- uv run python init_db.py` |
 | Bootstrap de datos | — | `wsl -d Ubuntu -- uv run python data_bootstrap.py` |
 | Feature store | — | `wsl -d Ubuntu -- uv run python pipeline_features.py` |

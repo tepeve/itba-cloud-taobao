@@ -8,8 +8,8 @@ Pipeline batch de recomendación sobre el dataset de Taobao, emulado en LocalSta
 # 1. Levantar servicios (LocalStack + PostgreSQL + MLflow) — Windows PowerShell
 docker compose up -d --build
 
-# 2. Aprovisionar infraestructura en LocalStack — WSL
-wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao/terraform && tofu init && tofu apply'
+# 2. Aprovisionar infraestructura en LocalStack — WSL (alb_asg_enabled=false: ELBv2/ASG son Pro)
+wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao/terraform && tofu init && tofu apply -var="alb_asg_enabled=false"'
 
 # 3. Ejecutar el pipeline completo (inicialización → datos → features → modelo → inferencia) — WSL
 wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run python init_db.py && uv run python data_bootstrap.py && uv run python pipeline_features.py && uv run python pipeline_training.py && uv run python pipeline_inference.py'
@@ -22,7 +22,7 @@ wsl -d Ubuntu -- bash -lc 'cd ~/itba/repo/taobao && uv run python init_db.py && 
 | [ARQUITECTURA.md](ARQUITECTURA.md) | Diseño conceptual: problema, 4 capas, stack, cronograma, costos |
 | [DEPLOYMENT.md](DEPLOYMENT.md) | Guía operativa: comandos, input/output, racional de cada script, mediciones reales |
 | [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md) | Inventario de servicios (continuos vs. efímeros) y escalabilidad |
-| [COMPUTO.md](COMPUTO.md) | Estado de la capa de cómputo (EC2/Lambda pendiente) y enfoques propuestos |
+| [COMPUTO.md](COMPUTO.md) | Estado de la capa de cómputo (IaaS orquestado por Airflow) |
 | [tests/README.md](tests/README.md) | Suite de tests de integración por iteración |
 
 ## Resumen del pipeline
@@ -34,17 +34,20 @@ CSV (3.5 GB, 100M filas)
             └─ pipeline_training.py → MLflow (modelo XGBoost + 6 métricas)
                  └─ pipeline_inference.py → PostgreSQL inference_results (Top-K por usuario)
                       └─ API FastAPI  → GET /recommendations/{user_id}
+
+Orquestación: taobao_dag.py (Airflow) → BootstrapOperator >> Features >> Training >> Inference
 ```
 
 ## Estructura del repositorio
 
 ```
 api/                  Capa de servicio (FastAPI + Dockerfile)
-terraform/            IaC modular (networking, security_groups, iam, s3, rds, alb_asg)
+terraform/            IaC modular (networking, security_groups, iam, s3, rds, alb_asg, compute)
 data_bootstrap.py     Ingesta: CSV → Parquet en S3
 pipeline_features.py  Feature store (split temporal anti-leakage)
 pipeline_training.py  Entrenamiento XGBoost + registro en MLflow
 pipeline_inference.py Inferencia batch Top-K → PostgreSQL
+taobao_dag.py         DAG de Airflow (orquesta bootstrap → features → training → inference)
 init_db.py            Esquema inference_results
 init_mlflow_db.py     Base de datos mlflow
 docker/               Imagen MLflow custom
