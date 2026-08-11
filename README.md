@@ -21,10 +21,10 @@ uv run python init_db.py && uv run python data_bootstrap.py && uv run python pip
 
 | Documento | Contenido |
 |-----------|-----------|
-| [ARQUITECTURA.md](ARQUITECTURA.md) | Diseño conceptual: problema, 4 capas, stack, decisiones de implementación |
-| [DEPLOYMENT.md](DEPLOYMENT.md) | Guía operativa: orden de despliegue, comandos, input/output y racional de cada script |
-| [PLANIFICACIÓN_Y_COSTOS.md](PLANIFICACIÓN_Y_COSTOS.md) | Cronograma por fases, estimación financiera (FinOps) y mediciones reales del pipeline |
-| [INFRAESTRUCTURA.md](INFRAESTRUCTURA.md) | Inventario de servicios (continuos vs. efímeros) y escalabilidad |
+| [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) | Diseño conceptual: problema, 4 capas, stack, decisiones de implementación |
+| [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) | Guía operativa: orden de despliegue, comandos, input/output y racional de cada script |
+| [docs/PLANIFICACIÓN_Y_COSTOS.md](docs/PLANIFICACIÓN_Y_COSTOS.md) | Cronograma por fases, estimación financiera (FinOps) y mediciones reales del pipeline |
+| [docs/INFRAESTRUCTURA.md](docs/INFRAESTRUCTURA.md) | Inventario de servicios (continuos vs. efímeros) y escalabilidad |
 | [tests/README.md](tests/README.md) | Suite de tests de integración por iteración |
 
 ## Resumen del pipeline
