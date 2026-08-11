@@ -43,3 +43,20 @@ def test_instance_profile_exists(instance_profile):
 def test_instance_profile_linked_to_role(instance_profile, batch_role):
     roles = instance_profile["Roles"]
     assert any(r["RoleName"] == batch_role["RoleName"] for r in roles)
+
+
+def test_ssm_parameter_exists(ssm_parameter):
+    assert ssm_parameter["Name"] == "/taobao/prod/rds_password"
+    assert ssm_parameter["Type"] == "SecureString"
+
+
+def test_ssm_policy_allows_get_and_kms(ssm_read_policy):
+    actions = ssm_read_policy["Statement"][0]["Action"]
+    assert "ssm:GetParameter" in actions
+    assert "kms:Decrypt" in actions
+
+
+def test_s3_policy_includes_airflow_dags_bucket(s3_rw_policy):
+    resources = s3_rw_policy["Statement"][0]["Resource"]
+    assert "arn:aws:s3:::taobao-airflow-dags" in resources
+    assert "arn:aws:s3:::taobao-airflow-dags/*" in resources

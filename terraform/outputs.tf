@@ -42,6 +42,14 @@ output "instance_profile_arn" {
   value = module.iam.instance_profile_arn
 }
 
+output "instance_profile_name" {
+  value = module.iam.instance_profile_name
+}
+
+output "ssm_parameter_name" {
+  value = module.iam.ssm_parameter_name
+}
+
 output "datalake_bucket_arn" {
   value = module.s3.bucket_arn
 }

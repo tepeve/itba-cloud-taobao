@@ -109,6 +109,17 @@ def rds_available(rds_client):
 
 
 @pytest.fixture(scope="session")
+def ssm_client(localstack_endpoint):
+    return boto3.client(
+        "ssm",
+        endpoint_url=localstack_endpoint,
+        region_name=REGION,
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+    )
+
+
+@pytest.fixture(scope="session")
 def pg_host():
     return os.environ.get("PGHOST") or _wsl_gateway_ip() or "localhost"
 
@@ -311,3 +322,24 @@ def instance_profile(iam_client):
     return iam_client.get_instance_profile(
         InstanceProfileName=f"{PROJECT}-batch-instance-profile"
     )["InstanceProfile"]
+
+
+@pytest.fixture(scope="session")
+def ssm_parameter(ssm_client):
+    resp = ssm_client.describe_parameters(
+        Filters=[{"Key": "Name", "Values": ["/taobao/prod/rds_password"]}]
+    )
+    params = resp["Parameters"]
+    assert params, "SSM parameter /taobao/prod/rds_password no encontrado"
+    return params[0]
+
+
+@pytest.fixture(scope="session")
+def ssm_read_policy(iam_client):
+    policies = iam_client.list_policies(Scope="Local")["Policies"]
+    match = [p for p in policies if p["PolicyName"] == f"{PROJECT}-ssm-read-policy"]
+    assert match, f"Policy {PROJECT}-ssm-read-policy no encontrada"
+    version = iam_client.get_policy_version(
+        PolicyArn=match[0]["Arn"], VersionId=match[0]["DefaultVersionId"]
+    )
+    return version["PolicyVersion"]["Document"]

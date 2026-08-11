@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -23,5 +27,7 @@ provider "aws" {
     iam = var.localstack_endpoint
     s3  = var.localstack_endpoint
     sts = var.localstack_endpoint
+    ssm = var.localstack_endpoint
+    kms = var.localstack_endpoint
   }
 }

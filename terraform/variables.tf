@@ -35,7 +35,12 @@ variable "private_subnet_cidrs" {
 
 variable "bucket_names" {
   type    = list(string)
-  default = ["taobao-datalake", "taobao-mlflow-artifacts"]
+  default = ["taobao-datalake", "taobao-mlflow-artifacts", "taobao-airflow-dags"]
+}
+
+variable "db_user" {
+  type    = string
+  default = "taobao"
 }
 
 variable "rds_enabled" {
