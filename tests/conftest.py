@@ -353,3 +353,35 @@ def airflow_instance(ec2_client):
     instances = resp["Reservations"][0]["Instances"]
     assert instances, f"Instancia {PROJECT}-airflow no encontrada"
     return instances[0]
+
+
+@pytest.fixture(scope="session")
+def autoscaling_client(localstack_endpoint):
+    return boto3.client(
+        "autoscaling",
+        endpoint_url=localstack_endpoint,
+        region_name=REGION,
+        aws_access_key_id="test",
+        aws_secret_access_key="test",
+    )
+
+
+@pytest.fixture(scope="session")
+def asg_available(autoscaling_client):
+    try:
+        autoscaling_client.describe_auto_scaling_groups()
+        return True
+    except Exception:
+        return False
+
+
+@pytest.fixture(scope="session")
+def launch_template(ec2_client, asg_available):
+    if not asg_available:
+        pytest.skip("servicio ASG/EC2 Launch Template no disponible en LocalStack community")
+    resp = ec2_client.describe_launch_templates(
+        Filters=[{"Name": "tag:Name", "Values": [f"{PROJECT}-api"]}]
+    )
+    templates = resp.get("LaunchTemplates", [])
+    assert templates, f"Launch Template {PROJECT}-api no encontrado"
+    return templates[0]

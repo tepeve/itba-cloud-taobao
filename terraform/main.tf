@@ -71,4 +71,10 @@ module "alb_asg" {
   private_subnet_ids  = module.networking.private_subnet_ids
   sg_alb_id           = module.security_groups.sg_alb_id
   sg_api_ec2_id       = module.security_groups.sg_api_ec2_id
+  ami_id              = var.ami_id
+  rds_endpoint        = module.rds.endpoint
+  db_user             = var.db_user
+  ssm_parameter_name  = module.iam.ssm_parameter_name
+  dags_bucket         = module.s3_airflow_dags.bucket_name
+  iam_instance_profile_name = module.iam.instance_profile_name
 }

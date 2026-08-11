@@ -41,3 +41,28 @@ variable "max_size" {
   type    = number
   default = 4
 }
+
+variable "rds_endpoint" {
+  type = string
+}
+
+variable "db_user" {
+  type = string
+}
+
+variable "ssm_parameter_name" {
+  type = string
+}
+
+variable "dags_bucket" {
+  type = string
+}
+
+variable "iam_instance_profile_name" {
+  type = string
+}
+
+variable "ami_id" {
+  type    = string
+  default = "ami-07b643b5e45e"
+}

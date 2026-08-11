@@ -54,19 +54,23 @@ resource "aws_launch_template" "main" {
   count = var.enabled ? 1 : 0
 
   name_prefix   = "${var.project}-api-"
-  image_id      = "ami-0abcdef1234567890"
+  image_id      = var.ami_id
   instance_type = "t3.micro"
 
-  user_data = base64encode(<<-EOT
-    #!/bin/bash
-    docker run -d -p ${var.api_port}:${var.api_port} \
-      --name taobao-api \
-      taobao-api:latest
-  EOT
-  )
+  iam_instance_profile {
+    name = var.iam_instance_profile_name
+  }
+
+  user_data = base64encode(templatefile("${path.module}/scripts/init_api.sh.tpl", {
+    db_host          = var.rds_endpoint
+    db_user          = var.db_user
+    ssm_db_password  = var.ssm_parameter_name
+    dags_bucket      = var.dags_bucket
+  }))
 
   network_interfaces {
-    security_groups = [var.sg_api_ec2_id]
+    associate_public_ip_address = false
+    security_groups             = [var.sg_api_ec2_id]
   }
 
   tag_specifications {

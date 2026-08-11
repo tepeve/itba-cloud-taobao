@@ -50,7 +50,7 @@ variable "rds_enabled" {
 
 variable "alb_asg_enabled" {
   type    = bool
-  default = false
+  default = true
 }
 
 variable "gateway_ip" {
