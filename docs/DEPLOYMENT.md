@@ -12,7 +12,24 @@ Documento de referencia con todos los comandos necesarios para desplegar los ser
 6. [API de servicio](#6-api-de-servicio)
 7. [Detalles técnicos del pipeline](#7-detalles-técnicos-del-pipeline)
 8. [Tests](#8-tests)
-9. [Tabla resumen de comandos](#9-tabla-resumen-de-comandos)
+
+---
+
+## Tabla resumen de comandos
+
+| Paso | Comando |
+|---|---|
+| Levantar servicios | `docker compose up -d --build` |
+| Estado de servicios | `docker compose ps` | 
+| Bajar servicios |  `docker compose down` |
+| Infraestructura |  `tofu apply -var="alb_asg_enabled=false"` |
+| Inicializar DB |  `uv run python init_db.py` |
+| Bootstrap de datos |  `uv run python data_bootstrap.py` |
+| Feature store | `uv run python pipeline_features.py` |
+| Entrenamiento |  `uv run python pipeline_training.py` |
+| Inferencia | `uv run python pipeline_inference.py` |
+| API |  `uv run uvicorn api.main:app --port 8000` |
+| Tests |  `uv run pytest tests/ -v` |
 
 ---
 
@@ -367,18 +384,3 @@ Todos los tests son de integración (marcador `integration`) y requieren LocalSt
 
 ---
 
-## 9. Tabla resumen de comandos
-
-| Paso | Comando (Windows) | Comando (WSL) |
-|---|---|---|
-| Levantar servicios | `docker compose up -d --build` | — |
-| Estado de servicios | `docker compose ps` | — |
-| Bajar servicios | `docker compose down` | — |
-| Infraestructura | — | `tofu apply -var="alb_asg_enabled=false"` |
-| Inicializar DB | — | `uv run python init_db.py` |
-| Bootstrap de datos | — | `uv run python data_bootstrap.py` |
-| Feature store | — | `uv run python pipeline_features.py` |
-| Entrenamiento | — | `uv run python pipeline_training.py` |
-| Inferencia | — | `uv run python pipeline_inference.py` |
-| API | — | `uv run uvicorn api.main:app --port 8000` |
-| Tests | — | `uv run pytest tests/ -v` |
