@@ -146,11 +146,18 @@ El dataset crudo (`UserBehavior.csv`, sin header, ~100M filas) se descarga de Ka
 https://www.kaggle.com/datasets/marwa80/userbehavior/data
 ```
 
-Debe alojarse en `data/raw/UserBehavior.csv` para que `data_bootstrap.py` lo encuentre por defecto. Descarga alternativa vía CLI de Kaggle:
+Debe alojarse en `data/raw/UserBehavior.csv` para que `data_bootstrap.py` lo encuentre por defecto. La descarga está integrada en el repositorio vía `make data` (idempotente: saltea si el archivo ya existe):
 
 ```bash
-kaggle datasets download -d marwa80/userbehavior -p data/raw --unzip
+make data
 ```
+
+**Requisito de credenciales:** Kaggle requiere una cuenta gratuita y un API token. Antes de ejecutar `make data`, configurar las credenciales de una de estas dos formas:
+
+ 1. **Variables de entorno:** exportar `KAGGLE_USERNAME=<usuario>` y `KAGGLE_KEY=<token>`.
+ 2. **Archivo de credenciales:** colocar el `kaggle.json` (descargado de [Kaggle > Settings > API](https://www.kaggle.com/settings)) en `~/.kaggle/kaggle.json` con permisos `chmod 600`.
+
+El token se crea una sola vez en [https://www.kaggle.com/settings](https://www.kaggle.com/settings) (sección API → Create New Token).
 
 ### `uv run python data_bootstrap.py`
 
