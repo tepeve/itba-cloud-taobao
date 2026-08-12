@@ -11,13 +11,18 @@ Una vez subidos al datalake, se depuran y generan features y agregaciones, y se 
 # 1. Levantar servicios (LocalStack + PostgreSQL + MLflow) — PowerShell de Windows, desde la raíz del repo
 docker compose up -d --build
 
-# 2. Aprovisionar infraestructura en LocalStack — WSL, desde el directorio terraform/
-#    (alb_asg_enabled=false: ELBv2/ASG son features Pro del emulador)
-tofu init
-tofu apply -var="alb_asg_enabled=false"
+# 2. Descargar el dataset — WSL, desde la raíz del repo
+#    Requiere cuenta Kaggle gratuita + API token (una sola vez):
+#    exportar KAGGLE_USERNAME=<usuario> KAGGLE_KEY=<token> o colocar ~/.kaggle/kaggle.json
+make data
 
-# 3. Ejecutar el pipeline completo (inicialización → datos → features → modelo → inferencia) — WSL, desde la raíz del repo
-uv run python init_db.py && uv run python data_bootstrap.py && uv run python pipeline_features.py && uv run python pipeline_training.py && uv run python pipeline_inference.py
+# 3. Aprovisionar infraestructura en LocalStack — WSL, desde la raíz del repo
+#    (alb_asg_enabled=false: ELBv2/ASG son features Pro del emulador)
+tofu -chdir=terraform init
+tofu -chdir=terraform apply -var="alb_asg_enabled=false"
+
+# 4. Ejecutar el pipeline completo (inicialización → datos → features → modelo → inferencia) — WSL, desde la raíz del repo
+make pipeline
 ```
 
 ## Documentación
@@ -46,6 +51,8 @@ Orquestación: taobao_dag.py (Airflow) → data_bootstrap >> pipeline_features >
 ## Estructura del repositorio
 
 ```
+Makefile              Puntos de entrada (make data / make infra / make pipeline)
+scripts/              Descarga del dataset (fetch_dataset.py)
 api/                  Capa de servicio (FastAPI + Dockerfile)
 terraform/            IaC modular (networking, security_groups, iam, s3, rds, alb_asg, compute)
 data_bootstrap.py     Ingesta: CSV → Parquet en S3
