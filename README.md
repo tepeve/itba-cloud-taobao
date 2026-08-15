@@ -12,8 +12,6 @@ Una vez subidos al datalake, se depuran y generan features y agregaciones, y se 
 docker compose up -d --build
 
 # 2. Descargar el dataset — WSL, desde la raíz del repo
-#    Requiere cuenta Kaggle gratuita + API token (una sola vez):
-#    exportar KAGGLE_USERNAME=<usuario> KAGGLE_KEY=<token> o colocar ~/.kaggle/kaggle.json
 make data
 
 # 3. Aprovisionar infraestructura en LocalStack — WSL, desde la raíz del repo
@@ -52,9 +50,9 @@ Orquestación: taobao_dag.py (Airflow) → data_bootstrap >> pipeline_features >
 
 ```
 Makefile              Puntos de entrada (make data / make infra / make pipeline)
-scripts/              Descarga del dataset (fetch_dataset.py)
 api/                  Capa de servicio (FastAPI + Dockerfile)
 terraform/            IaC modular (networking, security_groups, iam, s3, rds, alb_asg, compute)
+fetch_dataset.sh      Script Bash para descargar dataset original (opción transitoria)
 data_bootstrap.py     Ingesta: CSV → Parquet en S3
 pipeline_features.py  Feature store (split temporal anti-leakage)
 pipeline_training.py  Entrenamiento XGBoost + registro en MLflow
