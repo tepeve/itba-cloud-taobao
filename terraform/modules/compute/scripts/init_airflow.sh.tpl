@@ -25,7 +25,7 @@ services:
       AIRFLOW__CORE__EXECUTOR: LocalExecutor
       AIRFLOW__CORE__LOAD_EXAMPLES: 'False'
       AIRFLOW_VAR_DATALAKE_BUCKET: ${datalake_bucket}
-      AIRFLOW_VAR_MLFLOW_DB_URI: postgresql+psycopg2://${db_user}:$DB_PASSWORD@${db_host}:5432/mlflow
+      AIRFLOW_VAR_MLFLOW_DB_URI: http://${gateway_ip}:5000
       AIRFLOW_VAR_RDS_HOST: ${db_host}
       AIRFLOW_VAR_RDS_USER: ${db_user}
       AIRFLOW_VAR_RDS_PASSWORD: $DB_PASSWORD
