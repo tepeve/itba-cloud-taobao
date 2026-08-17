@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import duckdb
 
@@ -30,6 +31,8 @@ def _configure_s3(con, endpoint):
     con.execute("SET s3_region='us-east-1'")
     con.execute("SET s3_url_style='path'")
     con.execute("SET s3_use_ssl=false")
+    con.execute("SET http_timeout=600000")
+    con.execute("SET http_retries=5")
 
 
 def _raw_url(bucket, prefix):
@@ -231,7 +234,14 @@ def run_pipeline(
     endpoint=ENDPOINT,
     neg_ratio=NEG_RATIO,
 ):
-    con = duckdb.connect()
+    db_path = Path("data/tmp/features.duckdb")
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    if db_path.exists():
+        db_path.unlink()
+    con = duckdb.connect(str(db_path))
+    memory_limit = os.environ.get("DUCKDB_MEMORY_LIMIT")
+    if memory_limit:
+        con.execute(f"SET memory_limit='{memory_limit}'")
     try:
         load_raw(con, bucket, raw_prefix, endpoint)
         build_history_features(con)

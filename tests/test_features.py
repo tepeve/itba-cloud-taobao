@@ -6,6 +6,7 @@ from pipeline_features import (
     VAL_DAYS,
     TEST_DAYS,
     INFER_DAYS,
+    _s3_endpoint,
     run_pipeline,
 )
 
@@ -54,7 +55,7 @@ def test_train_val_test_infer_dates_disjoint(s3_client, pipeline_result):
     con = duckdb.connect()
     con.execute("INSTALL httpfs")
     con.execute("LOAD httpfs")
-    con.execute("SET s3_endpoint='172.21.16.1:4566'")
+    con.execute(f"SET s3_endpoint='{_s3_endpoint(s3_client.meta.endpoint_url)}'")
     con.execute("SET s3_access_key_id='test'")
     con.execute("SET s3_secret_access_key='test'")
     con.execute("SET s3_region='us-east-1'")
@@ -80,7 +81,7 @@ def test_train_days_match_expected(s3_client, pipeline_result):
     con = duckdb.connect()
     con.execute("INSTALL httpfs")
     con.execute("LOAD httpfs")
-    con.execute("SET s3_endpoint='172.21.16.1:4566'")
+    con.execute(f"SET s3_endpoint='{_s3_endpoint(s3_client.meta.endpoint_url)}'")
     con.execute("SET s3_access_key_id='test'")
     con.execute("SET s3_secret_access_key='test'")
     con.execute("SET s3_region='us-east-1'")
@@ -99,7 +100,7 @@ def test_val_test_infer_days_match_expected(s3_client, pipeline_result):
     con = duckdb.connect()
     con.execute("INSTALL httpfs")
     con.execute("LOAD httpfs")
-    con.execute("SET s3_endpoint='172.21.16.1:4566'")
+    con.execute(f"SET s3_endpoint='{_s3_endpoint(s3_client.meta.endpoint_url)}'")
     con.execute("SET s3_access_key_id='test'")
     con.execute("SET s3_secret_access_key='test'")
     con.execute("SET s3_region='us-east-1'")
@@ -134,7 +135,7 @@ def test_negatives_present_in_train_val_test(s3_client, pipeline_result):
     con = duckdb.connect()
     con.execute("INSTALL httpfs")
     con.execute("LOAD httpfs")
-    con.execute("SET s3_endpoint='172.21.16.1:4566'")
+    con.execute(f"SET s3_endpoint='{_s3_endpoint(s3_client.meta.endpoint_url)}'")
     con.execute("SET s3_access_key_id='test'")
     con.execute("SET s3_secret_access_key='test'")
     con.execute("SET s3_region='us-east-1'")
@@ -154,7 +155,7 @@ def test_positives_are_engagement(s3_client, pipeline_result):
     con = duckdb.connect()
     con.execute("INSTALL httpfs")
     con.execute("LOAD httpfs")
-    con.execute("SET s3_endpoint='172.21.16.1:4566'")
+    con.execute(f"SET s3_endpoint='{_s3_endpoint(s3_client.meta.endpoint_url)}'")
     con.execute("SET s3_access_key_id='test'")
     con.execute("SET s3_secret_access_key='test'")
     con.execute("SET s3_region='us-east-1'")
@@ -169,7 +170,7 @@ def test_inference_has_no_label(s3_client, pipeline_result):
     con = duckdb.connect()
     con.execute("INSTALL httpfs")
     con.execute("LOAD httpfs")
-    con.execute("SET s3_endpoint='172.21.16.1:4566'")
+    con.execute(f"SET s3_endpoint='{_s3_endpoint(s3_client.meta.endpoint_url)}'")
     con.execute("SET s3_access_key_id='test'")
     con.execute("SET s3_secret_access_key='test'")
     con.execute("SET s3_region='us-east-1'")
@@ -190,7 +191,7 @@ def test_features_columns_present(s3_client, pipeline_result):
     con = duckdb.connect()
     con.execute("INSTALL httpfs")
     con.execute("LOAD httpfs")
-    con.execute("SET s3_endpoint='172.21.16.1:4566'")
+    con.execute(f"SET s3_endpoint='{_s3_endpoint(s3_client.meta.endpoint_url)}'")
     con.execute("SET s3_access_key_id='test'")
     con.execute("SET s3_secret_access_key='test'")
     con.execute("SET s3_region='us-east-1'")

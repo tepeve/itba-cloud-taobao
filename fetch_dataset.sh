@@ -2,6 +2,11 @@
 FILE_ID="19S4jCcQe5CDxwCEraQ17_s6k0WjtpRAT"
 OUTPUT="data/raw/UserBehavior.csv"
 
+if [ -s "$OUTPUT" ]; then
+    echo "Dataset ya descargado en $OUTPUT"
+    exit 0
+fi
+
 HTML_RESPONSE=$(curl -c ./cookies.txt -s -L "https://drive.google.com/uc?export=download&id=${FILE_ID}")
 CONFIRM_TOKEN=$(echo "$HTML_RESPONSE" | grep -o -E 'confirm=[^&"]+' | head -n 1 | cut -d '=' -f 2)
 

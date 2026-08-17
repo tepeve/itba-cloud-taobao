@@ -1,7 +1,7 @@
 .PHONY: data services infra pipeline all
 
 data:
-	uv run python fetch_dataset.sh
+	bash fetch_dataset.sh
 
 services:
 	docker compose up -d --build
