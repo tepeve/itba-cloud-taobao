@@ -2,6 +2,12 @@
 
 TP Integrador (ITBA): pipeline batch de recomendación sobre el dataset Taobao, emulando AWS en LocalStack. El plan de arquitectura en 4 capas (S3 / EC2 batch / MLflow+RDS / ELB+ASG+RDS+FastAPI) está en `docs/ARQUITECTURA.md`; la guía operativa en `docs/DEPLOYMENT.md`. Fuentes de verdad externas (Obsidian): `Taobao - Prompt Maestro.md` y `Taobao - dataset inicial.md` en `C:\Users\Usuario\Documents\data\Apuntes\IngData\ITBA\TP Integrador\`.
 
+## Estado actual (punto de retoma)
+
+- Temporalidad Airflow implementada y pusheada (`feat(orquestación)...`): DAG diario/semanal a las 03:00 Asia/Shanghai.
+- Fixes de pipeline pusheados (`fix(pipeline): duckdb en disco y timeout httpfs`): `pipeline_features.py` con DuckDB en disco + `http_timeout`, `test_features.py` con endpoint dinámico, `fetch_dataset.sh` con skip, `Makefile` con `make data` arreglado.
+- **Pendiente (retomar acá):** correr el pipeline end-to-end en la máquina nueva (90 GB RAM; repo y dataset ya presentes) y dejar la suite verde. Orden: `docker compose up -d --build` → `tofu -chdir=terraform apply -var="alb_asg_enabled=false"` → `uv run python init_db.py` → `data_bootstrap.py` → `pipeline_features.py` → `pipeline_training.py` → `pipeline_inference.py` → `uv run pytest tests/ -v`. Fallos conocidos a revisar: `test_api` (users 1/2/3 deben existir en `inference_results`) y `test_training`/`test_inference` (requieren `processed` en S3, sale del paso features).
+
 ## Reglas estrictas (Prompt Maestro)
 
 - Código **sin comentarios** ni docstrings explicativos, sin excepciones.
@@ -28,13 +34,15 @@ El contexto lo inyecta el DAG vía `env_vars` (variables Airflow `datalake_bucke
 El shell del agente es **WSL2 Linux nativo**: `git`, `uv`, `docker compose`, `tofu` corren directo en el repo (ruta actual `/home/tepeve/repos/itba-cloud-taobao`, rama `main`). Ya no aplican los viejos workarounds de PowerShell.
 
 - **`tofu` no está en el PATH** de esta máquina (OpenTofu) → instalarlo antes de `make infra`. No existe binario `terraform`.
-- **`make data` está roto**: el target ejecuta `uv run python fetch_dataset.sh`, pero `fetch_dataset.sh` es un script Bash → usar `bash fetch_dataset.sh`.
+- **`make data`** ahora llama `bash fetch_dataset.sh` (antes `uv run python`, estaba roto); el script saltea la descarga si `data/raw/UserBehavior.csv` ya existe.
 - **`make pipeline`** encadena `init_db.py` → `data_bootstrap.py` → `pipeline_features.py` → `pipeline_training.py` → `pipeline_inference.py`. `main.py` (raíz) es stub (`print("Hello from taobao!")`), no entrypoint.
 - Tests: todos marcados `integration` (pyproject) → requieren LocalStack `up` + `tofu apply` previo. Correr: `uv run pytest tests/ -v`; un solo test: `uv run pytest tests/test_iam.py::test_role_trust_ec2 -v`.
-- **LocalStack pinned `localstack/localstack:3.5.0`** (`:latest` exige licencia, exit 55). `PERSISTENCE=1` es obligatorio en `docker-compose.yml` (sin él, `up --build` borra estado). `SERVICES` debe incluir `ssm` o `tofu apply` falla con `Service 'ssm' is not enabled`.
+- **LocalStack pinned `localstack/localstack:3.5.0`** (`:latest` exige licencia, exit 55). `PERSISTENCE=1` es obligatorio en `docker-compose.yml` (sin él, `up --build` borra estado), **pero NO sobrevive a un kill duro**: si la VM de WSL se reinicia por OOM, `localstack-data/state/` queda vacío y hay que re-aplicar `tofu apply` + re-correr el pipeline (buckets, VPC, IAM, S3 se pierden). `SERVICES` debe incluir `ssm` o `tofu apply` falla con `Service 'ssm' is not enabled`.
 - **LocalStack community NO implementa RDS, ELBv2 ni Auto Scaling** (features Pro). `terraform/modules/rds` y `alb_asg` son declarativos para AWS real; en LocalStack aplicar con **`-var alb_asg_enabled=false`**, o falla creando `aws_lb`. Base real = sidecar `postgres:15` del compose; API se prueba con `TestClient`, no vía ALB.
 - **Scripts analíticos sin fallbacks `localhost`**: `os.environ.get()` para `LOCALSTACK_ENDPOINT`, `MLFLOW_TRACKING_URI`, `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` **no tienen default**. El DAG los inyecta; en local sin DAG exportar a mano o usar tests (conftest inyecta `PGPORT`/`PGDATABASE`, resto vía fixtures). Endpoint desde WSL = `localhost` (`_wsl_gateway_*` de conftest solo activan con `os.name=="nt"`); desde contenedores = `host.docker.internal`.
-- **DuckDB `httpfs`** lee/escribe Parquet directo en LocalStack S3 (`s3_endpoint`, `s3_url_style='path'`, `s3_use_ssl=false`). Motor de `pipeline_features.py`/`data_bootstrap.py`.
+- **DuckDB `httpfs`** lee/escribe Parquet directo en LocalStack S3 (`s3_endpoint`, `s3_url_style='path'`, `s3_use_ssl=false`). `_configure_s3` (pipeline_features.py) además setea `http_timeout=600000` + `http_retries=5`: el default de 30s de httpfs **falla** leyendo parquet grande (~120 MB/partición) desde LocalStack lento. Motor de `pipeline_features.py`/`data_bootstrap.py`.
+- **DuckDB en disco es working set efímero, no cambia la arquitectura**: `pipeline_features.py` abre `data/tmp/features.duckdb` y `data_bootstrap.py` abre `data/tmp/bootstrap.duckdb` (spill a disco); S3 sigue siendo fuente/destino vía `read_parquet`/`COPY TO`. `DUCKDB_MEMORY_LIMIT` (env, opcional) fuerza spill en máquinas con poca RAM.
+- **RAM**: `pipeline_features.py` materializa ~99M filas + ~15 tablas intermedias; una VM WSL2 de 3.4 GB hace OOM y **reinicia la VM** (mata la sesión). Con poca RAM setear `DUCKDB_MEMORY_LIMIT` y no correr `docker compose up -d --build` en paralelo al pipeline.
 - Python 3.12 gestionado por uv (`.python-version`). No hay lint/typecheck/CI; `pre-commit` es dependencia sin `.pre-commit-config.yaml`.
 
 ## Reglas de negocio del pipeline
