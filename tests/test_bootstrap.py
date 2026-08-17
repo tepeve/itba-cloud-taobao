@@ -3,12 +3,13 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from data_bootstrap import BUCKET, S3_PREFIX, run_bootstrap
+from data_bootstrap import BUCKET, run_bootstrap
 
 pytestmark = pytest.mark.integration
 
 DENSE_CSV = "tests/fixtures/dense.csv"
 TEST_PARQUET_DIR = "data/processed/parquet_test"
+TEST_PREFIX = "raw_test_bootstrap"
 EXPECTED_DATES = {"2017-11-25", "2017-11-26"}
 
 
@@ -18,7 +19,7 @@ def bootstrap_result(localstack_endpoint):
         csv_path=DENSE_CSV,
         out_dir=TEST_PARQUET_DIR,
         bucket=BUCKET,
-        prefix=S3_PREFIX,
+        prefix=TEST_PREFIX,
         endpoint=localstack_endpoint,
         workers=4,
         min_interactions=10,
@@ -40,7 +41,7 @@ def test_bootstrap_writes_one_parquet_per_partition(bootstrap_result):
 
 
 def test_bootstrap_writes_hive_partitions(s3_client, bootstrap_result):
-    keys = _prefix_keys_contents(s3_client, f"{S3_PREFIX}/event_date=")
+    keys = _prefix_keys_contents(s3_client, f"{TEST_PREFIX}/event_date=")
     assert keys
     for key in keys:
         assert "/event_date=" in key
@@ -48,7 +49,7 @@ def test_bootstrap_writes_hive_partitions(s3_client, bootstrap_result):
 
 
 def test_bootstrap_partition_dates_match_expected(s3_client, bootstrap_result):
-    keys = _prefix_keys_contents(s3_client, f"{S3_PREFIX}/event_date=")
+    keys = _prefix_keys_contents(s3_client, f"{TEST_PREFIX}/event_date=")
     dates = {k.split("event_date=")[1].split("/")[0] for k in keys}
     assert dates == EXPECTED_DATES
 
@@ -86,7 +87,7 @@ def test_bootstrap_filters_out_of_range_timestamps(localstack_endpoint, tmp_path
         csv_path="tests/fixtures/out_of_range.csv",
         out_dir=out_dir,
         bucket=BUCKET,
-        prefix=S3_PREFIX,
+        prefix=TEST_PREFIX,
         endpoint=localstack_endpoint,
         workers=4,
         min_interactions=10,
