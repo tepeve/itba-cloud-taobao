@@ -5,6 +5,11 @@ Pipeline batch de recomendación sobre el dataset de Taobao, emulado en LocalSta
 Recibe como datos de origen el dataset [User Behavior Data from Taobao for Recommendation](https://tianchi.aliyun.com/dataset/649?lang=en-us), de Alibaba, con datos de eventos de navegación de la tienda [Taobao](https://www.taobao.com/). 
 Una vez subidos al datalake, se depuran y generan features y agregaciones, y se entrena un modelo predictivo para estimar la probabilidad de interacción usuario-ítem. Dicho modelo se usa para predecir los top-k items con mayor probabilidad de engagement para los usuarios definidos como habituales (con más de 10 interacciones durante el dataset), para el día más reciente del dataset. El pipeline culmina disponibilizando, mediante una API, una terna de items por usuario para ser integrados al resto de la plataforma. 
 
+## Diagrama de Sistema
+<div align="center">
+  <img src="docs/taobao_arch.excalidraw.svg" alt="Arquitectura Cloud: Pipeline Batch de Recomendación y MLOps" width="100%">
+</div>
+
 ## Quickstart
 
 ```bash

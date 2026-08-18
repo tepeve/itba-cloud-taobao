@@ -2,6 +2,11 @@
 
 Documento de diseño conceptual del sistema de recomendación batch (Taobao → LocalStack). Describe el problema, la topología por capas y las decisiones de implementación. El cronograma de desarrollo, la estimación de costos y las mediciones del pipeline se documentan en [PLANIFICACIÓN_Y_COSTOS.md](PLANIFICACIÓN_Y_COSTOS.md).
 
+## Diagrama de Sistema
+<div align="center">
+  <img src="taobao_arch.excalidraw.svg" alt="Arquitectura Cloud: Pipeline Batch de Recomendación y MLOps" width="100%">
+</div>
+
 ## Tabla de contenidos
 
 1. [Definición del Problema y Alcance](#1-definición-del-problema-y-alcance)
