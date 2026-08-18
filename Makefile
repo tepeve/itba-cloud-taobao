@@ -1,5 +1,14 @@
 .PHONY: data services infra pipeline all
 
+WSL_GW := $(shell ip route | grep default | awk '{print $$3}')
+export PGHOST ?= $(if $(WSL_GW),$(WSL_GW),localhost)
+export LOCALSTACK_ENDPOINT ?= $(if $(WSL_GW),http://$(WSL_GW):4566,http://localhost:4566)
+export MLFLOW_TRACKING_URI ?= $(if $(WSL_GW),http://$(WSL_GW):5000,http://localhost:5000)
+export PGPORT ?= 5432
+export PGUSER ?= taobao
+export PGPASSWORD ?= taobao123
+export PGDATABASE ?= taobao
+
 data:
 	bash fetch_dataset.sh
 
@@ -18,4 +27,3 @@ pipeline:
 	uv run python pipeline_inference.py
 
 all: data infra pipeline
-	@echo "Pipeline completo. Servicios (services) deben levantarse por separado en PowerShell (docker compose up -d --build)."

@@ -12,7 +12,7 @@ Documento de planificación del sistema de recomendación batch (Taobao → Loca
 
 ## 1. Costos: Estimación Financiera y FinOps
 
-Estimación respaldada en la **AWS Pricing Calculator** (región `us-east-1`, On-Demand, sin instancias Reservadas ni Savings Plans). Los valores reproducen la configuración real del IaC (`terraform/modules/*`) y las decisiones de dimensionamiento acordadas durante la sesión de FinOps. El detalle completo está en [AWS Pricing Calculator — Taobao Estimate](https://calculator.aws/#/estimate?id=37289b14eb845c08e797e5a69e3952289384f984).
+Estimación respaldada en la **AWS Pricing Calculator** (región `us-east-1`, On-Demand, sin instancias Reservadas ni Savings Plans). Los valores reproducen la configuración real del IaC (`terraform/modules/*`) y las decisiones de dimensionamiento acordadas durante la sesión de FinOps. El detalle completo está en [AWS Pricing Calculator — Taobao Estimate](https://calculator.aws/#/estimate?id=c7c4c126c22a5808da69b04f805ec9dc4a6a431c).
 
 > **Total estimado: $133.58/mes ≈ $1,602.96/año.**
 

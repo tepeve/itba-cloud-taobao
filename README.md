@@ -102,7 +102,7 @@ Estimación para **una persona full-time (~40 h/semana)**: 8 fases secuenciales,
 | NAT Gateway | 1, ~1 GB/mes | $32.89 |
 | **Total** | | **$133.58/mes ≈ $1,602.96/año** |
 
-Presupuesto respaldado en la [AWS Pricing Calculator](https://calculator.aws/#/estimate?id=37289b14eb845c08e797e5a69e3952289384f984) (us-east-1, On-Demand). Detalle por servicio en [docs/PLANIFICACIÓN_Y_COSTOS.md](docs/PLANIFICACIÓN_Y_COSTOS.md).
+Presupuesto respaldado en la [AWS Pricing Calculator](https://calculator.aws/#/estimate?id=c7c4c126c22a5808da69b04f805ec9dc4a6a431c) (us-east-1, On-Demand). Detalle por servicio en [docs/PLANIFICACIÓN_Y_COSTOS.md](docs/PLANIFICACIÓN_Y_COSTOS.md).
 
 ## Quickstart
 
