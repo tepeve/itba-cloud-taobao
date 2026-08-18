@@ -218,31 +218,74 @@ Referencia: el CSV original en disco pesa 3.5 GB (fuente, no desplegado).
 
 El desarrollo se estructura en fases secuenciales que garantizan la validación lógica y la reproducibilidad. Los _commits_ del repositorio siguen el estándar de _Conventional Commits_ en español.
 
+**Supuesto de estimación:** plazos calculados para **una persona dedicada full-time (~40 h/semana)**, con fases secuenciales. Inicio el **24-08-2026**, fin estimado el **01-10-2026** (~6 semanas, 29 días hábiles).
+
 - **Fases 1-5:** prototipo sobre LocalStack (desarrollo, validación lógica, emulación de AWS).
 - **Fases 6-8:** montado y despliegue de producción en AWS real (materialización de los recursos gated y puesta en operación).
 
+### Calendario de fases
+
+| Fase | Duración | Inicio | Fin |
+|---|---|---|---|
+| 1. Redes e Infraestructura como Código | 3 días | 24-08-2026 | 26-08-2026 |
+| 2. Simulación de Datos y Bootstrap | 3 días | 27-08-2026 | 31-08-2026 |
+| 3. Pipeline Analítico y MLOps | 5 días | 01-09-2026 | 07-09-2026 |
+| 4. Capa de Exposición (Serving) | 5 días | 08-09-2026 | 14-09-2026 |
+| 5. Cómputo Orquestado | 5 días | 15-09-2026 | 21-09-2026 |
+| 6. IaC de Producción en AWS | 2 días | 22-09-2026 | 23-09-2026 |
+| 7. Cómputo Orquestado en EC2 Real | 3 días | 24-09-2026 | 28-09-2026 |
+| 8. Serving en Producción y FinOps | 3 días | 29-09-2026 | 01-10-2026 |
+| **Total** | **29 días** | | **~6 semanas** |
+
+Las fases 3, 4 y 5 concentran la mayor carga (features + XGBoost, API + contenedor, y Airflow + red/secretos, respectivamente).
+
+```mermaid
+gantt
+    title Cronograma Taobao - 1 persona (full-time)
+    dateFormat  YYYY-MM-DD
+    axisFormat  %d/%m
+    excludes    weekends
+
+    section Prototipo LocalStack
+    Fase 1 Redes e IaC        :f1, 2026-08-24, 3d
+    Fase 2 Bootstrap          :f2, after f1, 3d
+    Fase 3 Pipeline y MLOps   :f3, after f2, 5d
+    Fase 4 Serving            :f4, after f3, 5d
+    Fase 5 Computo orquestado :f5, after f4, 5d
+
+    section Producción AWS
+    Fase 6 IaC produccion     :f6, after f5, 2d
+    Fase 7 EC2 orquestador    :f7, after f6, 3d
+    Fase 8 Serving y FinOps   :f8, after f7, 3d
+```
+
 ### Fase 1: Redes e Infraestructura como Código
 
+- **Duración estimada:** 3 días (24-08 → 26-08-2026).
 - **Objetivo:** Aprovisionar el perímetro de seguridad y los recursos persistentes.
 - **Tareas:** Codificación en Terraform de la VPC multi-AZ, _Internet Gateway_, tablas de enrutamiento y _Security Groups_ bajo el principio de privilegio mínimo (lista blanca). Despliegue de _buckets_ S3. (En LocalStack los recursos RDS/ALB/ASG quedan gated; en AWS real se materializan en la Fase 6.)
 
 ### Fase 2: Simulación de Datos y Bootstrap
 
+- **Duración estimada:** 3 días (27-08 → 31-08-2026).
 - **Objetivo:** Desarrollar el _script_ determinista (`data_bootstrap.py`) que actúe como simulador transaccional.
 - **Tareas:** Descarga del _dataset_ de Taobao, particionamiento físico cronológico del `timestamp`, conversión tabular a formato Parquet y carga paralela (vía `boto3`) a LocalStack S3 simulando la ingesta diaria.
 
 ### Fase 3: Pipeline Analítico y MLOps
 
+- **Duración estimada:** 5 días (01-09 → 07-09-2026).
 - **Objetivo:** Automatizar la extracción de características y el ciclo de vida del modelo.
 - **Tareas:** Desarrollo de _scripts_ de transformación ELT/ETL para calcular tensores de frecuencia, dominancia de comportamiento y suavizado de Laplace. Despliegue del contenedor de MLflow y ejecución del entrenamiento (XGBoost) registrando los artefactos.
 
 ### Fase 4: Capa de Exposición (Serving)
 
+- **Duración estimada:** 5 días (08-09 → 14-09-2026).
 - **Objetivo:** Desacoplar la inferencia del entrenamiento para garantizar baja latencia.
 - **Tareas:** Creación del esquema en PostgreSQL para almacenar resultados precomputados. Contenerización de la API HTTP. Configuración del Application Load Balancer y el Auto Scaling Group apuntando a las instancias EC2 en la subred privada.
 
 ### Fase 5: Cómputo Orquestado (Sprint 2)
 
+- **Duración estimada:** 5 días (15-09 → 21-09-2026).
 - **Objetivo:** Migrar la capa de cómputo batch al paradigma IaaS orquestado por Apache Airflow, sustituyendo la ejecución manual secuencial de los scripts.
 - **Tareas:**
   - Red con **NAT Gateway** (EIP en subred pública) + **VPC Endpoint S3** (Gateway) sobre la route table privada, para que las instancias privadas accedan a S3 sin transitar por el NAT.
@@ -254,6 +297,7 @@ El desarrollo se estructura en fases secuenciales que garantizan la validación 
 
 ### Fase 6: IaC de Producción en AWS
 
+- **Duración estimada:** 2 días (22-09 → 23-09-2026).
 - **Objetivo:** Materializar en AWS real los recursos que LocalStack community mantiene gated.
 - **Tareas:**
   - `tofu apply -var="rds_enabled=true" -var="alb_asg_enabled=true"` sobre el mismo código declarativo.
@@ -263,6 +307,7 @@ El desarrollo se estructura en fases secuenciales que garantizan la validación 
 
 ### Fase 7: Cómputo Orquestado en EC2 Real
 
+- **Duración estimada:** 3 días (24-09 → 28-09-2026).
 - **Objetivo:** Poner en operación el orquestador Airflow sobre la instancia EC2 `t3.medium` real.
 - **Tareas:**
   - La instancia procesa `user_data` (a diferencia del mock de LocalStack): instala Docker, resuelve la contraseña DB vía SSM y levanta `apache/airflow:2.9.0` con `LocalExecutor`.
@@ -271,6 +316,7 @@ El desarrollo se estructura en fases secuenciales que garantizan la validación 
 
 ### Fase 8: Serving en Producción y FinOps
 
+- **Duración estimada:** 3 días (29-09 → 01-10-2026).
 - **Objetivo:** Exponer la API en producción y validar el presupuesto.
 - **Tareas:**
   - Despliegue de la imagen `taobao-api` vía launch template; el ASG la escala (min 2 / max 4) detrás del ALB.
