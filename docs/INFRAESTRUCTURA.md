@@ -1,6 +1,6 @@
 # Infraestructura del Pipeline — Inventario de Servicios
 
-Documento de inventario de los componentes de infraestructura que se instancian a lo largo del pipeline de recomendación (Taobao → LocalStack), distinguiendo cuáles **permanecen encendidos de forma continua** de los que son **efímeros** (se instancian por etapa y terminan). El análisis de escalabilidad y crecimiento vive en [PLANIFICACIÓN_Y_COSTOS.md](PLANIFICACIÓN_Y_COSTOS.md).
+Documento de inventario de los componentes de infraestructura que se instancian a lo largo del pipeline de recomendación (Taobao → LocalStack), distinguiendo cuáles **permanecen encendidos de forma continua** de los que son **efímeros** (se instancian por etapa y terminan). La estimación de costos y las mediciones reales del pipeline viven en [PLANIFICACIÓN_Y_COSTOS.md](PLANIFICACIÓN_Y_COSTOS.md).
 
 ## Resumen ejecutivo
 
