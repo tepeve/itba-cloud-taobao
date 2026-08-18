@@ -10,6 +10,56 @@ Una vez subidos al datalake, se depuran y generan features y agregaciones, y se 
   <img src="docs/taobao_arch.excalidraw.svg" alt="Arquitectura Cloud: Pipeline Batch de Recomendación y MLOps" width="100%">
 </div>
 
+## Cronograma
+
+Estimación para **una persona full-time (~40 h/semana)**: 8 fases secuenciales, **~6 semanas** (24-08 → 01-10-2026). Detalle en [docs/PLANIFICACIÓN_Y_COSTOS.md](docs/PLANIFICACIÓN_Y_COSTOS.md).
+
+| Fase | Duración |
+|---|---|
+| 1. Redes e Infraestructura como Código | 3 días |
+| 2. Simulación de Datos y Bootstrap | 3 días |
+| 3. Pipeline Analítico y MLOps | 5 días |
+| 4. Capa de Exposición (Serving) | 5 días |
+| 5. Cómputo Orquestado | 5 días |
+| 6. IaC de Producción en AWS | 2 días |
+| 7. Cómputo Orquestado en EC2 Real | 3 días |
+| 8. Serving en Producción y FinOps | 3 días |
+| **Total** | **29 días (~6 semanas)** |
+
+```mermaid
+gantt
+    title Cronograma Taobao - 1 persona (full-time)
+    dateFormat  YYYY-MM-DD
+    axisFormat  %d/%m
+    excludes    weekends
+
+    section Prototipo LocalStack
+    Fase 1 Redes e IaC        :f1, 2026-08-24, 3d
+    Fase 2 Bootstrap          :f2, after f1, 3d
+    Fase 3 Pipeline y MLOps   :f3, after f2, 5d
+    Fase 4 Serving            :f4, after f3, 5d
+    Fase 5 Computo orquestado :f5, after f4, 5d
+
+    section Producción AWS
+    Fase 6 IaC produccion     :f6, after f5, 2d
+    Fase 7 EC2 orquestador    :f7, after f6, 3d
+    Fase 8 Serving y FinOps   :f8, after f7, 3d
+```
+
+## Costos estimados (FinOps)
+
+Presupuesto respaldado en la [AWS Pricing Calculator](https://calculator.aws/#/estimate?id=37289b14eb845c08e797e5a69e3952289384f984) (us-east-1, On-Demand). Detalle por servicio en [docs/PLANIFICACIÓN_Y_COSTOS.md](docs/PLANIFICACIÓN_Y_COSTOS.md).
+
+| Servicio | Detalle | Costo/mes |
+|---|---|---|
+| Amazon EC2 | `t3.medium` (Airflow) + 2× `t3.micro` (API ASG) | $45.55 |
+| Amazon EBS | 3 × 30 GB gp3 | $7.20 |
+| Amazon S3 | 3 buckets (datalake 6 GB) | $0.16 |
+| Amazon RDS for PostgreSQL | `db.t3.micro`, 20 GB, Multi-AZ | $30.88 |
+| Application Load Balancer | 1 público (LCU < 1) | $16.90 |
+| NAT Gateway | 1, ~1 GB/mes | $32.89 |
+| **Total** | | **$133.58/mes ≈ $1,602.96/año** |
+
 ## Quickstart
 
 ```bash
