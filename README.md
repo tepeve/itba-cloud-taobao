@@ -120,5 +120,23 @@ tofu -chdir=terraform apply -var="alb_asg_enabled=false"
 
 # 4. Ejecutar el pipeline completo (inicialización → datos → features → modelo → inferencia) — WSL, desde la raíz del repo
 make pipeline
+
+# 5. Probar el servicio de recomendaciones
+# Levantar API
+uv run uvicorn api.main:app --host 0.0.0.0 --port 8000
+# En otra terminal probar:
+curl http://localhost:8000/recommendations/1 # Devuelve terna user_id: 1
+curl -i http://localhost:8000/recommendations/999999999   # Devuvle error 404 usuario inexistente
+
+# 6. Acceder a la UI MLFLOW
+http://localhost:5000   
+
+# 7. Levantar Webserver Airflow vía Docker 
+docker compose -f docker-compose.airflow.yml up -d
+docker compose -f docker-compose.airflow.yml ps
+docker compose -f docker-compose.airflow.yml logs -f airflow
+
+http://localhost:8080, usuario admin / contraseña admin.
+
 ```
 Detalle de comandos en [Guía de Despliegue y Operación](docs/DEPLOYMENT.md).
