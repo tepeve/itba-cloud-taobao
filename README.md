@@ -120,3 +120,4 @@ tofu -chdir=terraform apply -var="alb_asg_enabled=false"
 # 4. Ejecutar el pipeline completo (inicialización → datos → features → modelo → inferencia) — WSL, desde la raíz del repo
 make pipeline
 ```
+Detalle de comandos en [Guía de Despliegue y Operación](docs/DEPLOYMENT.md).
