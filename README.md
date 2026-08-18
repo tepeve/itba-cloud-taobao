@@ -53,9 +53,9 @@ docker/               Imagen MLflow custom
 tests/                Suite de integración
 ```
 
-## Cronograma
+Detalle en [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md)
 
-Estimación para **una persona full-time (~40 h/semana)**: 8 fases secuenciales, **~6 semanas** (24-08 → 01-10-2026). Detalle en [docs/PLANIFICACIÓN_Y_COSTOS.md](docs/PLANIFICACIÓN_Y_COSTOS.md).
+## Cronograma
 
 | Fase | Duración |
 |---|---|
@@ -88,10 +88,9 @@ gantt
     Fase 7 EC2 orquestador    :f7, after f6, 3d
     Fase 8 Serving y FinOps   :f8, after f7, 3d
 ```
+Estimación para **una persona full-time (~40 h/semana)**: 8 fases secuenciales, **~6 semanas** (24-08 → 01-10-2026). Detalle en [docs/PLANIFICACIÓN_Y_COSTOS.md](docs/PLANIFICACIÓN_Y_COSTOS.md).
 
 ## Costos estimados (FinOps)
-
-Presupuesto respaldado en la [AWS Pricing Calculator](https://calculator.aws/#/estimate?id=37289b14eb845c08e797e5a69e3952289384f984) (us-east-1, On-Demand). Detalle por servicio en [docs/PLANIFICACIÓN_Y_COSTOS.md](docs/PLANIFICACIÓN_Y_COSTOS.md).
 
 | Servicio | Detalle | Costo/mes |
 |---|---|---|
@@ -102,6 +101,8 @@ Presupuesto respaldado en la [AWS Pricing Calculator](https://calculator.aws/#/e
 | Application Load Balancer | 1 público (LCU < 1) | $16.90 |
 | NAT Gateway | 1, ~1 GB/mes | $32.89 |
 | **Total** | | **$133.58/mes ≈ $1,602.96/año** |
+
+Presupuesto respaldado en la [AWS Pricing Calculator](https://calculator.aws/#/estimate?id=37289b14eb845c08e797e5a69e3952289384f984) (us-east-1, On-Demand). Detalle por servicio en [docs/PLANIFICACIÓN_Y_COSTOS.md](docs/PLANIFICACIÓN_Y_COSTOS.md).
 
 ## Quickstart
 
