@@ -104,21 +104,19 @@ Estimación para **una persona full-time (~40 h/semana)**: 8 fases secuenciales,
 
 Presupuesto respaldado en la [AWS Pricing Calculator](https://calculator.aws/#/estimate?id=c7c4c126c22a5808da69b04f805ec9dc4a6a431c) (us-east-1, On-Demand). Detalle por servicio en [docs/PLANIFICACIÓN_Y_COSTOS.md](docs/PLANIFICACIÓN_Y_COSTOS.md).
 
-## Quickstart
+## Quickstart con Makefile (ejecutar desde el root del repo)
 
 ```bash
-# 1. Levantar servicios (LocalStack + PostgreSQL + MLflow) — PowerShell de Windows, desde la raíz del repo
-docker compose up -d --build
+# 1. Levantar servicios docker (LocalStack + PostgreSQL + MLflow)
+make services
 
-# 2. Descargar el dataset — WSL, desde la raíz del repo
+# 2. Descargar el dataset
 make data
 
-# 3. Aprovisionar infraestructura en LocalStack — WSL, desde la raíz del repo
-#    (alb_asg_enabled=false: ELBv2/ASG son features Pro del emulador)
-tofu -chdir=terraform init
-tofu -chdir=terraform apply -var="alb_asg_enabled=false"
+# 3. Aprovisionar infraestructura en LocalStack 
+make infra
 
-# 4. Ejecutar el pipeline completo (inicialización → datos → features → modelo → inferencia) — WSL, desde la raíz del repo
+# 4. Ejecutar el pipeline completo (inicialización → datos → features → modelo → inferencia) 
 make pipeline
 
 # 5. Probar el servicio de recomendaciones
